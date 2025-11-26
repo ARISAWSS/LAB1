@@ -1,0 +1,64 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Environnements virtuels
+venv/
+env/
+ENV/
+.venv
+
+# Logs générés par le système
+logs/
+*.log
+keylog_buffer.json
+
+# Fichiers de configuration sensibles (optionnel - décommentez si vous ne voulez pas les partager)
+# victime/config.py
+# attaquant/config.py
+# controleur/config.py
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Fichiers temporaires
+*.tmp
+*.bak
+*.cache
+
+# Fichiers de test
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Fichiers de sauvegarde
+*.backup
+*.old
+
