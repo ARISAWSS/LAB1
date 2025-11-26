@@ -1,0 +1,147 @@
+body {
+    background-color: #f5f5f5;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.navbar {
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+#status-indicator {
+    font-size: 1.2em;
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
+.status-active {
+    color: #28a745 !important;
+}
+
+.status-inactive {
+    color: #dc3545 !important;
+}
+
+.card {
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    border: none;
+    margin-bottom: 1rem;
+}
+
+.card-header {
+    font-weight: 600;
+}
+
+.list-group-item {
+    border-left: 4px solid transparent;
+    transition: all 0.3s;
+}
+
+.list-group-item:hover {
+    background-color: #f8f9fa;
+    border-left-color: #007bff;
+}
+
+.list-group-item.active {
+    background-color: #007bff;
+    border-left-color: #0056b3;
+}
+
+.victim-item {
+    cursor: pointer;
+}
+
+.victim-id {
+    font-family: 'Courier New', monospace;
+    font-size: 0.85em;
+    color: #6c757d;
+}
+
+.logs-container {
+    background-color: #1e1e1e;
+    color: #d4d4d4;
+    padding: 1rem;
+    border-radius: 4px;
+    min-height: 400px;
+    max-height: 600px;
+    overflow-y: auto;
+    font-family: 'Courier New', monospace;
+    font-size: 0.9em;
+    line-height: 1.6;
+}
+
+.logs-container .log-line {
+    margin-bottom: 0.25rem;
+}
+
+.logs-container .log-key {
+    color: #4ec9b0;
+}
+
+.logs-container .log-special {
+    color: #dcdcaa;
+    font-weight: bold;
+}
+
+.logs-container .log-timestamp {
+    color: #808080;
+    font-size: 0.8em;
+}
+
+.keyword-badge {
+    margin: 0.25rem;
+    display: inline-block;
+}
+
+.analysis-section {
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid #dee2e6;
+}
+
+.analysis-section:first-child {
+    margin-top: 0;
+    padding-top: 0;
+    border-top: none;
+}
+
+.stats-item {
+    padding: 0.5rem 0;
+    border-bottom: 1px solid #e9ecef;
+}
+
+.stats-item:last-child {
+    border-bottom: none;
+}
+
+/* Scrollbar personnalisée pour les logs */
+.logs-container::-webkit-scrollbar {
+    width: 8px;
+}
+
+.logs-container::-webkit-scrollbar-track {
+    background: #2d2d2d;
+}
+
+.logs-container::-webkit-scrollbar-thumb {
+    background: #555;
+    border-radius: 4px;
+}
+
+.logs-container::-webkit-scrollbar-thumb:hover {
+    background: #777;
+}
+
+/* Animation pour les nouveaux logs */
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-5px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.log-line.new {
+    animation: fadeIn 0.3s ease-in;
+}
+

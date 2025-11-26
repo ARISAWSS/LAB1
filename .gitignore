@@ -4,37 +4,16 @@ __pycache__/
 *$py.class
 *.so
 .Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
-
-# Environnements virtuels
 venv/
 env/
 ENV/
 .venv
 
-# Logs générés par le système
+# Logs et données
 logs/
 *.log
 keylog_buffer.json
-
-# Fichiers de configuration sensibles (optionnel - décommentez si vous ne voulez pas les partager)
-# victime/config.py
-# attaquant/config.py
-# controleur/config.py
+*.json.bak
 
 # IDE
 .vscode/
@@ -53,12 +32,8 @@ desktop.ini
 *.bak
 *.cache
 
-# Fichiers de test
-.pytest_cache/
-.coverage
-htmlcov/
-
-# Fichiers de sauvegarde
-*.backup
-*.old
+# Secrets et configs sensibles (optionnel - décommentez si vous ne voulez pas pousser les configs)
+# victime/config.py
+# attaquant/config.py
+# controleur/config.py
 

