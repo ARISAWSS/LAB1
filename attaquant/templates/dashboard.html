@@ -72,6 +72,32 @@
                                 </button>
                             </div>
                         </div>
+                        <!-- Commandes -->
+                        <div class="row mt-2" id="commands-section" style="display: none;">
+                            <div class="col-12">
+                                <label class="form-label"><strong>Commandes distantes:</strong></label>
+                                <div class="btn-group" role="group">
+                                    <button class="btn btn-success btn-sm" onclick="sendCommand('start_capture')">
+                                        ▶️ Start Capture
+                                    </button>
+                                    <button class="btn btn-danger btn-sm" onclick="sendCommand('stop_capture')">
+                                        ⏹️ Stop Capture
+                                    </button>
+                                    <button class="btn btn-primary btn-sm" onclick="sendCommand('flush_logs')">
+                                        📤 Flush Logs
+                                    </button>
+                                    <div class="btn-group" role="group">
+                                        <button type="button" class="btn btn-secondary btn-sm dropdown-toggle" data-bs-toggle="dropdown">
+                                            🔄 Switch Mode
+                                        </button>
+                                        <ul class="dropdown-menu">
+                                            <li><a class="dropdown-item" href="#" onclick="sendCommand('switch_mode', {mode: 'http'}); return false;">HTTP</a></li>
+                                            <li><a class="dropdown-item" href="#" onclick="sendCommand('switch_mode', {mode: 'tcp'}); return false;">TCP</a></li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
 

