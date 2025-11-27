@@ -1,6 +1,6 @@
-pynput==1.7.6
+keyboard==0.13.5
 requests==2.31.0
 
-# Note: pynput 1.7.6 peut avoir des problèmes avec Python 3.13
-# Si vous rencontrez des erreurs "ThreadHandle not callable", utilisez Python 3.12 ou 3.11
+# Note: keyboard est compatible avec Python 3.13
+# Sur Linux, peut nécessiter: sudo apt install python3-dev libx11-dev
 
