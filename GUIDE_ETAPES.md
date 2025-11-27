@@ -1,440 +1,130 @@
-# Guide Étape par Étape - Simulation Keylogger
+# Guide étape par étape – Simulation Keylogger
 
-## 📋 Table des Matières
-1. [Préparation des Machines Virtuelles](#1-préparation-des-machines-virtuelles)
-2. [Configuration du Réseau](#2-configuration-du-réseau)
-3. [Installation sur VM Attaquant](#3-installation-sur-vm-attaquant)
-4. [Installation sur VM Victime](#4-installation-sur-vm-victime)
-5. [Installation du Contrôleur](#5-installation-du-contrôleur)
-6. [Exécution du Système](#6-exécution-du-système)
-7. [Utilisation du Contrôleur](#7-utilisation-du-contrôleur)
-8. [Dépannage](#8-dépannage)
+Ce guide décrit la mise en place complète du projet conformément au sujet « LAB 1 – Extension avancée ». L’ensemble doit impérativement être exécuté dans des machines virtuelles VirtualBox connectées par un réseau interne.
 
----
+## 1. Préparer les machines virtuelles
 
-## 1. Préparation des Machines Virtuelles
+1. Créer deux VMs (minimum) :
+   - **Attaquant** : Ubuntu ou Windows, 2 Go de RAM, 20 Go de disque.
+   - **Victime** : Ubuntu ou Windows, 1 Go de RAM, 15 Go de disque.
+2. Installer Python 3.8+ sur chaque VM.  
+   - Linux : `sudo apt update && sudo apt install python3 python3-pip`.  
+   - Windows : installeur officiel python.org (cocher « Add Python to PATH »).
+3. Mettre à jour l’OS et appliquer les correctifs nécessaires.
 
-### Étape 1.1 : Créer les VMs dans VirtualBox
+## 2. Configurer VirtualBox
 
-1. **VM Attaquant** :
-   - Créer une nouvelle VM (Ubuntu/Windows recommandé)
-   - Allouer au moins 2 Go de RAM
-   - Créer un disque dur virtuel de 20 Go minimum
-   - Installer le système d'exploitation
+1. Dans VirtualBox, pour chaque VM : Paramètres > Réseau > Adapter 1 > Mode « Réseau Interne », nom `lab-network`.
+2. Démarrer les VMs et déterminer leurs adresses IP (ex. `ip addr show` ou `ipconfig`).
+3. Vérifier la connectivité : depuis la VM Victime, `ping <IP_attaquant>`.
 
-2. **VM Victime** :
-   - Créer une nouvelle VM (Ubuntu/Windows recommandé)
-   - Allouer au moins 1 Go de RAM
-   - Créer un disque dur virtuel de 15 Go minimum
-   - Installer le système d'exploitation
+## 3. Installer la VM Attaquant
 
-### Étape 1.2 : Installer Python
-
-**Sur les deux VMs :**
-
-- **Windows** : Télécharger Python 3.8+ depuis python.org
-- **Linux** : 
-  ```bash
-  sudo apt update
-  sudo apt install python3 python3-pip
-  ```
-
----
-
-## 2. Configuration du Réseau
-
-### Étape 2.1 : Configurer le Réseau Interne
-
-1. **VM Attaquant** :
-   - VirtualBox → Sélectionner la VM → Paramètres → Réseau
-   - Adapter 1 : Activer l'adaptateur réseau
-   - Mode d'accès réseau : **Réseau Interne**
-   - Nom : `lab-network`
-   - Démarrer la VM
-
-2. **VM Victime** :
-   - VirtualBox → Sélectionner la VM → Paramètres → Réseau
-   - Adapter 1 : Activer l'adaptateur réseau
-   - Mode d'accès réseau : **Réseau Interne**
-   - Nom : `lab-network`
-   - Démarrer la VM
-
-### Étape 2.2 : Trouver les Adresses IP
-
-**Sur VM Attaquant :**
-```bash
-# Linux
-ip addr show
-# ou
-ifconfig
-
-# Windows
-ipconfig
-```
-
-Notez l'adresse IP (ex: `192.168.56.101`)
-
-**Sur VM Victime :**
-```bash
-# Vérifier que la VM peut ping l'attaquant
-ping 192.168.56.101
-```
-
----
-
-## 3. Installation sur VM Attaquant
-
-### Étape 3.1 : Transférer les Fichiers
-
-**Option A : Dossier partagé VirtualBox**
-1. VirtualBox → Paramètres de la VM → Dossiers partagés
-2. Ajouter le dossier `Lab1` comme dossier partagé
-3. Monter dans la VM :
-   ```bash
-   # Linux
-   sudo mount -t vboxsf Lab1 /mnt/shared
+1. Transférer le dossier `attaquant/` dans la VM (dossier partagé, clé USB ou `scp`).  
+2. Installer les dépendances :
    ```
-
-**Option B : Clé USB**
-- Copier le dossier `attaquant` sur une clé USB
-- Transférer dans la VM
-
-**Option C : SCP (si réseau configuré)**
-```bash
-scp -r attaquant/ user@192.168.56.101:/home/user/
-```
-
-### Étape 3.2 : Installer les Dépendances
-
-```bash
-cd attaquant
-pip3 install -r requirements.txt
-```
-
-### Étape 3.3 : Vérifier la Configuration
-
-Ouvrir `config.py` et vérifier :
-```python
-HTTP_PORT = 8080
-TCP_PORT = 9999
-STORAGE_DIR = "logs"
-```
-
-### Étape 3.4 : Démarrer le Serveur
-
-```bash
-python3 server.py
-```
-
-Vous devriez voir :
-```
-==================================================
-SERVEUR ATTAQUANT - Keylogger Receiver
-==================================================
-[+] Port HTTP: 8080
-[+] Port TCP: 9999
-[+] Dossier de stockage: logs
-==================================================
-[+] Serveur TCP en écoute sur le port 9999
-[+] Démarrage du serveur HTTP...
-```
-
-**⚠️ Gardez ce terminal ouvert !**
-
----
-
-## 4. Installation sur VM Victime
-
-### Étape 4.1 : Transférer les Fichiers
-
-Transférer le dossier `victime` dans la VM (même méthode qu'étape 3.1)
-
-### Étape 4.2 : Installer les Dépendances
-
-```bash
-cd victime
-pip3 install -r requirements.txt
-```
-
-**Note pour Linux** : Vous pourriez avoir besoin de :
-```bash
-sudo apt install python3-dev
-sudo apt install libx11-dev
-```
-
-### Étape 4.3 : Configurer l'IP de l'Attaquant
-
-Ouvrir `config.py` et modifier :
-```python
-ATTACKER_IP = "192.168.56.101"  # L'IP de votre VM Attaquant
-ATTACKER_PORT = 8080
-EXFILTRATION_MODE = "http"  # ou "tcp"
-```
-
-### Étape 4.4 : Tester la Connexion
-
-```bash
-# Tester la connexion HTTP
-curl http://192.168.56.101:8080/victims
-
-# Ou avec Python
-python3 -c "import requests; print(requests.get('http://192.168.56.101:8080/victims').text)"
-```
-
-### Étape 4.5 : Démarrer le Keylogger
-
-```bash
-python3 keylogger.py
-```
-
-Vous devriez voir :
-```
-[+] Keylogger initialisé
-[+] ID Victime: <uuid>
-[+] Mode d'exfiltration: http
-[+] Serveur cible: 192.168.56.101:8080
-[+] Capture démarrée
-[+] Keylogger actif. Appuyez sur Ctrl+C pour arrêter.
-```
-
-**⚠️ Le keylogger capture maintenant toutes les frappes !**
-
----
-
-## 5. Installation du Contrôleur
-
-Le contrôleur peut être installé sur :
-- La VM Attaquant (même machine)
-- Une troisième VM
-- Votre machine hôte (si réseau configuré)
-
-### Étape 5.1 : Transférer les Fichiers
-
-Transférer le dossier `controleur`
-
-### Étape 5.2 : Installer les Dépendances
-
-```bash
-cd controleur
-pip3 install -r requirements.txt
-```
-
-### Étape 5.3 : Configurer l'IP de l'Attaquant
-
-Ouvrir `config.py` et modifier :
-```python
-ATTACKER_IP = "192.168.56.101"  # L'IP de votre VM Attaquant
-ATTACKER_PORT = 8080
-```
-
----
-
-## 6. Exécution du Système
-
-### Ordre de Démarrage
-
-1. **Démarrer le serveur attaquant** (VM Attaquant)
-   ```bash
    cd attaquant
-   python3 server.py
+   pip install -r requirements.txt
    ```
+3. Vérifier `config.py` (ports 8080/9999, dossier `logs`).  
+4. Lancer le serveur :
+   ```
+   python server.py
+   ```
+   La console doit afficher l’écoute HTTP/TCP. Laisser ce terminal ouvert.
 
-2. **Démarrer le keylogger** (VM Victime)
-   ```bash
+## 4. Installer la VM Victime
+
+1. Copier le dossier `victime/` sur la VM.  
+2. Installer les dépendances :
+   ```
    cd victime
-   python3 keylogger.py
+   pip install -r requirements.txt
+   sudo apt install python3-dev libx11-dev   # si besoin (Linux)
    ```
+3. Adapter `config.py` :
+   ```
+   ATTACKER_IP = "<IP de la VM Attaquant>"
+   ATTACKER_PORT = 8080
+   EXFILTRATION_MODE = "http"   # ou "tcp"
+   ```
+4. Vérifier la connectivité :
+   ```
+   curl http://<IP_attaquant>:8080/victims
+   ```
+5. Démarrer le keylogger :
+   ```
+   python keylogger.py
+   ```
+   Le programme affiche l’UUID généré et le mode d’exfiltration actif.
 
-3. **Démarrer le contrôleur** (Où vous voulez)
-   ```bash
+## 5. Installer le contrôleur
+
+1. Copier `controleur/` sur la VM Attaquant (ou sur une troisième VM).  
+2. Installer les dépendances :
+   ```
    cd controleur
-   python3 controller.py
+   pip install -r requirements.txt
    ```
+3. Modifier `controleur/config.py` avec l’IP du serveur attaquant.  
+4. Démarrer le CLI :
+   ```
+   python controller.py
+   ```
+5. Tableau de bord web : accessible sur `http://<IP_attaquant>:8080`.
 
-### Vérification
+## 6. Ordre d’exécution conseillé
 
-Sur la VM Attaquant, vous devriez voir dans le terminal du serveur :
-```
-[+] 5 logs reçus de <victim_id>
-[+] 3 logs reçus de <victim_id>
-...
-```
+1. Serveur attaquant (`python server.py`).  
+2. Keylogger sur la victime (`python keylogger.py`).  
+3. Contrôleur CLI ou ouverture du tableau de bord web.  
+4. Vérifier côté serveur que les logs sont reçus (`[+] N logs reçus de <uuid>`).
 
----
+## 7. Utiliser le contrôleur
 
-## 7. Utilisation du Contrôleur
-
-### Commandes Disponibles
-
-```
-controleur> list
-```
-Affiche toutes les victimes actives avec leur statut.
+### Interface CLI
 
 ```
-controleur> logs <victim_id>
-```
-Affiche les 50 derniers logs d'une victime.
-
-```
-controleur> logs <victim_id> 100
-```
-Affiche les 100 derniers logs.
-
-```
-controleur> analyze <victim_id>
-```
-Analyse les logs et affiche :
-- Nombre total de touches
-- Mots-clés détectés
-- Séquences répétitives
-
-```
-controleur> command <victim_id> start_capture
-```
-Envoie une commande à la victime (nécessite implémentation côté victime).
-
-```
-controleur> help
-```
-Affiche l'aide.
-
-```
-controleur> exit
-```
-Quitte le contrôleur.
-
-### Exemple de Session
-
-```
-controleur> list
-Victimes actives:
-------------------------------------------------------------
-1. ID: 550e8400-e29b-41d4-a716-446655440000
-   Statut: ACTIVE
-   Dernière activité: 2024-01-15T14:30:25
-
-controleur> logs 550e8400-e29b-41d4-a716-446655440000
-Logs pour 550e8400-e29b-41d4-a716-446655440000:
-Total: 127 entrées
-------------------------------------------------------------
-Hello World
-This is a test
-[ENTER]
-password123
-------------------------------------------------------------
-
-controleur> analyze 550e8400-e29b-41d4-a716-446655440000
-Analyse pour 550e8400-e29b-41d4-a716-446655440000:
-------------------------------------------------------------
-Total de touches: 127
-
-Mots-clés détectés:
-  - Hello
-  - World
-  - password
-  - test
-
-Séquences répétitives:
-  - 'a' répété 3 fois
-------------------------------------------------------------
+list                           # lister les victimes
+logs <victim_id> [limit]       # afficher les logs
+analyze <victim_id>            # analyser les frappes
+start <victim_id>              # start_capture
+stop <victim_id>               # stop_capture
+flush <victim_id>              # flush_logs
+switch <victim_id> <http|tcp>  # switch_mode
+command <victim_id> <cmd> ...  # format générique
 ```
 
----
+### Tableau de bord web
+
+1. Sélectionner une victime dans la liste.  
+2. Les logs sont rafraîchis toutes les 3 s.  
+3. Boutons disponibles : Start Capture, Stop Capture, Flush Logs, Switch HTTP/TCP.  
+4. Section Analyse pour consulter les statistiques simples (total de touches, mots-clés, séquences répétitives).
 
 ## 8. Dépannage
 
-### Problème : Le keylogger ne peut pas se connecter au serveur
+| Symptôme | Vérifications |
+|----------|---------------|
+| Pas de connexion | Serveur démarré, IP correcte, firewall ouvert (`sudo ufw allow 8080 9999`). |
+| `Module not found` | `pip install -r requirements.txt`. |
+| Permission refusée (Linux) | Installer `python3-dev` et `libx11-dev`, éviter `sudo` sauf nécessité. |
+| Aucune victime listée | Keylogger actif, IP correcte dans `controleur/config.py`, attendre quelques secondes. |
+| Logs absents | Vérifier `logs/<victim_id>/`, consulter `keylog_buffer.json`. |
 
-**Solutions :**
-1. Vérifier que le serveur attaquant est démarré
-2. Vérifier l'IP dans `victime/config.py`
-3. Vérifier le firewall :
-   ```bash
-   # Linux
-   sudo ufw allow 8080
-   sudo ufw allow 9999
-   ```
-4. Tester avec ping :
-   ```bash
-   ping 192.168.56.101
-   ```
+## 9. Contrôles à effectuer
 
-### Problème : Erreur "Module not found"
+- Capturer plusieurs types de touches (lettres, chiffres, touches spéciales).  
+- Tester les deux modes d’exfiltration (HTTP puis TCP).  
+- Vérifier le retry : couper le serveur puis le relancer pour confirmer l’envoi différé.  
+- Utiliser les commandes distantes depuis le CLI et depuis le dashboard web.  
+- Documenter l’ensemble (captures d’écran, schéma, limites, améliorations) pour le rapport.
 
-**Solution :**
-```bash
-pip3 install -r requirements.txt
-```
+## 10. Améliorations possibles
 
-### Problème : Permission denied sur Linux (keylogger)
-
-**Solution :**
-```bash
-# Sur Ubuntu/Debian
-sudo apt install python3-dev
-sudo apt install libx11-dev
-
-# Ou exécuter avec sudo (non recommandé)
-sudo python3 keylogger.py
-```
-
-### Problème : Aucune victime n'apparaît dans le contrôleur
-
-**Solutions :**
-1. Vérifier que le keylogger est démarré
-2. Vérifier que le serveur reçoit des logs (regarder le terminal du serveur)
-3. Attendre quelques secondes pour que les logs soient envoyés
-4. Vérifier l'IP dans `controleur/config.py`
-
-### Problème : Les logs ne s'affichent pas correctement
-
-**Solution :**
-- Vérifier que le dossier `logs/` existe sur le serveur
-- Vérifier les permissions d'écriture
-- Consulter les logs du serveur pour les erreurs
-
----
-
-## 📝 Notes Importantes
-
-1. **Sécurité** : Ce projet est uniquement à des fins pédagogiques
-2. **Isolation** : Toujours utiliser des machines virtuelles isolées
-3. **Réseau** : Utiliser uniquement le réseau interne VirtualBox
-4. **Permissions** : Sur Linux, le keylogger peut nécessiter des permissions spéciales
-5. **Performance** : Les VMs peuvent être lentes, soyez patient
-
----
-
-## 🔄 Prochaines Étapes (Améliorations Possibles)
-
-1. **Implémenter les commandes distantes** :
-   - Modifier `keylogger.py` pour écouter les commandes
-   - Ajouter un endpoint HTTP pour recevoir les commandes
-
-2. **Améliorer l'analyse** :
-   - Détection de mots de passe
-   - Détection d'URLs
-   - Analyse comportementale
-
-3. **Interface Web** :
-   - Remplacer le contrôleur CLI par une interface web
-   - Utiliser Flask ou Django
-
-4. **Chiffrement** :
-   - Chiffrer les logs avant l'envoi
-   - Utiliser TLS/SSL pour les communications
-
-5. **Persistance** :
-   - Ajouter le keylogger au démarrage automatique
-   - Masquer le processus
-
----
-
-## 📚 Ressources
-
-- Documentation VirtualBox : https://www.virtualbox.org/manual/
-- Documentation Python : https://docs.python.org/3/
-- Documentation Flask : https://flask.palletsprojects.com/
-- Documentation pynput : https://pynput.readthedocs.io/
+- Activer TLS/HTTPS pour l’exfiltration.  
+- Ajouter une base de données (SQLite/PostgreSQL) pour le stockage des logs.  
+- Implémenter un mécanisme d’authentification pour les commandes distantes.  
+- Étendre l’analyse (détection de mots sensibles, corrélation temporelle).  
+- Automatiser la collecte de captures d’écran et la génération de rapports.
 

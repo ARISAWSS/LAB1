@@ -1,317 +1,89 @@
-# Architecture du Système - Simulation Keylogger
+# Architecture du système
 
-## Schéma d'Architecture
-
-```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                         ENVIRONNEMENT VIRTUALBOX                        │
-│                                                                         │
-│  ┌──────────────────────┐         ┌──────────────────────┐            │
-│  │    VM VICTIME        │         │   VM ATTAQUANT       │            │
-│  │                      │         │                      │            │
-│  │  ┌──────────────┐   │         │  ┌──────────────┐   │            │
-│  │  │  Keylogger   │   │         │  │   Serveur    │   │            │
-│  │  │              │   │         │  │   HTTP/TCP   │   │            │
-│  │  │  - Capture   │───┼─────────┼─▶│              │   │            │
-│  │  │  - Encode    │   │ HTTP/   │  │  - Réception │   │            │
-│  │  │  - Exfiltrer │   │ TCP     │  │  - Stockage  │   │            │
-│  │  │  - Buffer    │   │         │  │  - Analyse   │   │            │
-│  │  └──────────────┘   │         │  └──────┬───────┘   │            │
-│  │                      │         │         │            │            │
-│  │  ID: UUID           │         │  ┌──────▼───────┐   │            │
-│  │  Mode: HTTP/TCP     │         │  │   Storage    │   │            │
-│  │  Retry: 3x          │         │  │              │   │            │
-│  └──────────────────────┘         │  │ logs/        │   │            │
-│                                    │  │  └─<uuid>/  │   │            │
-│                                    │  │     └─date/ │   │            │
-│                                    │  └─────────────┘   │            │
-│                                    └──────────┬─────────┘            │
-│                                               │                       │
-│                                               │ HTTP API              │
-│                                    ┌──────────▼─────────┐            │
-│                                    │   CONTRÔLEUR       │            │
-│                                    │                    │            │
-│                                    │  - Interface CLI   │            │
-│                                    │  - Liste victimes  │            │
-│                                    │  - Affichage logs  │            │
-│                                    │  - Analyse         │            │
-│                                    │  - Commandes       │            │
-│                                    └────────────────────┘            │
-│                                                                         │
-│  Réseau: Interne VirtualBox (lab-network)                              │
-│  IP Attaquant: 192.168.56.101 (exemple)                                │
-│  Ports: HTTP 8080, TCP 9999                                            │
-└─────────────────────────────────────────────────────────────────────────┘
-```
-
-## Flux de Données
-
-### 1. Capture et Exfiltration
+## Vue globale
 
 ```
-[Utilisateur tape] 
-    ↓
-[Keylogger capture via pynput]
-    ↓
-[Normalisation de la touche]
-    ↓
-[Encodage JSON]
-    ↓
-[Queue de logs]
-    ↓
-[Thread d'envoi périodique]
-    ↓
-[Exfiltration HTTP POST ou TCP Socket]
-    ↓
-[Retry en cas d'échec]
-    ↓
-[Buffer local si échec total]
+                 (Réseau interne VirtualBox)
+
+  +----------------------+        +----------------------+        +----------------------+
+  |      VM Victime      |        |      VM Attaquant    |        |      Contrôleur      |
+  |  - keylogger.py      |  --->  |  - server.py (HTTP)  |  <---  |  - CLI controller.py |
+  |  - capture pynput    |  --->  |  - TCP listener      |  <-->  |  - Dashboard Flask   |
+  |  - envoi HTTP/TCP    |        |  - stockage logs     |        |  - API REST consommée |
+  +----------------------+        +----------------------+        +----------------------+
+             ^                                  |                             ^
+             |                                  |                             |
+             +----------------------------------+-----------------------------+
+                               API REST / commandes
 ```
 
-### 2. Réception et Stockage
+* Les VMs communiquent via un réseau interne isolé (`lab-network`).  
+* Le keylogger choisit dynamiquement le mode d’exfiltration (HTTP ou TCP).  
+* Le contrôleur peut être lancé sur la VM Attaquant ou sur une troisième VM.
+
+## Flux principaux
+
+1. **Capture et normalisation**  
+   `pynput` déclenche `on_press` pour chaque touche. `normalize_key` convertit les touches spéciales et stocke l’événement au format JSON (`victim_id`, `timestamp`, `key`, `raw_key`).
+
+2. **Exfiltration**  
+   - **HTTP POST** : envoi vers `/logs` avec `requests`.  
+   - **TCP** : envoi via `socket` sur le port 9999.  
+   Le module applique un retry (3 tentatives, délai 5 s) et sauvegarde dans `keylog_buffer.json` en cas d’échec total.
+
+3. **Stockage**  
+   `storage.py` crée la hiérarchie `logs/<victim_id>/<YYYY-MM-DD>/log_HH-MM-SS.json`. Les lectures sont concaténées lors des requêtes `GET /victims/<id>/logs`.
+
+4. **Analyse**  
+   `GET /victims/<id>/analyze` calcule : nombre total de touches, mots-clés détectés et séquences répétitives. Ces informations sont affichées dans le CLI et le dashboard web.
+
+5. **Commandes distantes**  
+   - Contrôleur (CLI ou web) envoie `POST /command`.  
+   - Le serveur ajoute la commande dans `pending_commands`.  
+   - La victime interroge `GET /victims/<id>/commands` toutes les cinq secondes et exécute `start_capture`, `stop_capture`, `switch_mode`, `flush_logs`.
+
+## Points techniques clés
+
+| Domaine | Détails |
+|---------|---------|
+| Captures | `pynput.keyboard.Listener`, gestion des touches spéciales, buffer mémoire. |
+| Exfiltration | HTTP via `requests`, TCP via `socket`, retry configurable, tampon disque. |
+| Serveur | Flask pour l’API et l’interface web, thread TCP dédié, stockage JSON structuré. |
+| Contrôle | CLI couleur (`colorama`) + interface web (Bootstrap + JS) pour les commandes distantes. |
+| Sécurité | Usage strictement interne, aucune exposition hors réseau virtualisé, possibilité d’ajouter TLS et authentification. |
+
+## Diagramme de séquence simplifié
 
 ```
-[Requête HTTP POST /logs]
-    ↓
-[Validation des données]
-    ↓
-[Extraction victim_id et logs]
-    ↓
-[Création structure: logs/<victim_id>/<date>/]
-    ↓
-[Sauvegarde JSON]
-    ↓
-[Mise à jour liste victimes actives]
+Victime           Serveur            Contrôleur
+  |                  |                    |
+  |--- capture ----->|                    |
+  |--- envoi logs -->|                    |
+  |                  |--- GET /victims -->|
+  |                  |<-- liste victimes--|
+  |                  |<-- POST /command --|
+  |<-- GET commands -|                    |
+  |--- exécute ----->|                    |
 ```
 
-### 3. Consultation via Contrôleur
+## Conformité aux exigences
 
-```
-[Commande utilisateur]
-    ↓
-[Requête HTTP GET /victims]
-    ↓
-[Affichage liste victimes]
-    ↓
-[Requête HTTP GET /victims/<id>/logs]
-    ↓
-[Lecture fichiers JSON]
-    ↓
-[Formatage et affichage]
-```
+| Exigence | Réalisation |
+|----------|-------------|
+| Capture temps réel | keylogger.py (pynput). |
+| Normalisation + JSON | `normalize_key`, `encode_logs`. |
+| UUID par victime | Généré au démarrage (`uuid.uuid4`). |
+| Exfiltration HTTP/TCP | `send_via_http`, `send_via_tcp`. |
+| Résilience | Retry configurables, buffer mémoire + fichier. |
+| Récepteur | Flask + TCP listener, stockage structuré. |
+| Analyse optionnelle | Endpoint `/victims/<id>/analyze`. |
+| Contrôleur léger | CLI et dashboard web, commandes distantes complètes. |
 
-## Structure des Données
+## Améliorations possibles
 
-### Format d'un Log
-
-```json
-{
-  "victim_id": "550e8400-e29b-41d4-a716-446655440000",
-  "timestamp": "2024-01-15T14:30:25.123456",
-  "key": "a",
-  "raw_key": "'a'"
-}
-```
-
-### Format d'un Envoi (HTTP POST)
-
-```json
-{
-  "victim_id": "550e8400-e29b-41d4-a716-446655440000",
-  "logs": [
-    {
-      "victim_id": "550e8400-e29b-41d4-a716-446655440000",
-      "timestamp": "2024-01-15T14:30:25.123456",
-      "key": "H",
-      "raw_key": "'H'"
-    },
-    {
-      "victim_id": "550e8400-e29b-41d4-a716-446655440000",
-      "timestamp": "2024-01-15T14:30:25.234567",
-      "key": "e",
-      "raw_key": "'e'"
-    }
-  ],
-  "timestamp": "2024-01-15T14:30:26.000000"
-}
-```
-
-### Structure des Fichiers
-
-```
-logs/
-├── 550e8400-e29b-41d4-a716-446655440000/
-│   ├── 2024-01-15/
-│   │   ├── log_14-30-25.json
-│   │   ├── log_14-31-10.json
-│   │   └── log_14-32-05.json
-│   └── 2024-01-16/
-│       └── log_09-15-30.json
-└── 660e8400-e29b-41d4-a716-446655440001/
-    └── 2024-01-15/
-        └── log_15-20-00.json
-```
-
-## Composants Techniques
-
-### VM Victime - Keylogger
-
-**Technologies :**
-- Python 3.8+
-- pynput (capture clavier)
-- requests (HTTP)
-- socket (TCP)
-- threading (envoi asynchrone)
-
-**Fonctionnalités :**
-- Capture en temps réel
-- Normalisation des touches
-- Encodage JSON
-- Exfiltration HTTP/TCP
-- Mécanisme de retry
-- Buffer local
-- UUID unique par instance
-
-### VM Attaquant - Serveur
-
-**Technologies :**
-- Python 3.8+
-- Flask (serveur HTTP)
-- threading (serveur TCP)
-- JSON (stockage)
-
-**Fonctionnalités :**
-- Réception HTTP (POST /logs)
-- Réception TCP (port 9999)
-- Stockage organisé par victime/date
-- API REST pour consultation
-- Analyse basique des logs
-- Gestion des victimes actives
-
-### Contrôleur
-
-**Technologies :**
-- Python 3.8+
-- requests (client HTTP)
-- colorama (affichage coloré)
-
-**Fonctionnalités :**
-- Interface CLI interactive
-- Liste des victimes
-- Affichage des logs
-- Analyse des logs
-- Envoi de commandes (structure prête)
-
-## Endpoints API
-
-### GET /victims
-Liste toutes les victimes enregistrées.
-
-**Réponse :**
-```json
-{
-  "victims": [
-    {
-      "victim_id": "550e8400-e29b-41d4-a716-446655440000",
-      "last_seen": "2024-01-15T14:30:25",
-      "active": true
-    }
-  ]
-}
-```
-
-### POST /logs
-Reçoit les logs d'une victime.
-
-**Requête :**
-```json
-{
-  "victim_id": "550e8400-e29b-41d4-a716-446655440000",
-  "logs": [...],
-  "timestamp": "2024-01-15T14:30:26"
-}
-```
-
-### GET /victims/<victim_id>/logs
-Récupère les logs d'une victime.
-
-**Paramètres :**
-- `date` (optionnel) : Date au format YYYY-MM-DD
-
-**Réponse :**
-```json
-{
-  "victim_id": "550e8400-e29b-41d4-a716-446655440000",
-  "count": 127,
-  "logs": [...]
-}
-```
-
-### GET /victims/<victim_id>/analyze
-Analyse les logs d'une victime.
-
-**Réponse :**
-```json
-{
-  "victim_id": "550e8400-e29b-41d4-a716-446655440000",
-  "analysis": {
-    "total_keys": 127,
-    "keywords": ["Hello", "World", "password"],
-    "repetitive_sequences": [
-      {"key": "a", "count": 3}
-    ]
-  }
-}
-```
-
-## Sécurité et Limitations
-
-### Limitations Actuelles
-
-1. **Pas de chiffrement** : Les logs sont envoyés en clair
-2. **Pas d'authentification** : N'importe qui peut envoyer des logs
-3. **Pas de persistance** : Le keylogger s'arrête si fermé
-4. **Commandes distantes** : Structure prête mais non implémentée côté victime
-
-### Améliorations Possibles
-
-1. **Chiffrement TLS/SSL** : Utiliser HTTPS
-2. **Authentification** : Tokens ou clés partagées
-3. **Persistance** : Service système ou démarrage automatique
-4. **Chiffrement des logs** : AES avant envoi
-5. **Steganographie** : Cacher les logs dans des images
-6. **Communication bidirectionnelle** : WebSocket pour commandes en temps réel
-
-## Configuration Réseau
-
-### VirtualBox - Réseau Interne
-
-```
-VM Attaquant:
-  - Adapter 1: Réseau Interne
-  - Nom: lab-network
-  - IP: 192.168.56.101 (DHCP ou statique)
-
-VM Victime:
-  - Adapter 1: Réseau Interne
-  - Nom: lab-network
-  - IP: 192.168.56.102 (DHCP ou statique)
-```
-
-### Ports Utilisés
-
-- **8080** : Serveur HTTP (Flask)
-- **9999** : Serveur TCP (Socket)
-
-### Test de Connectivité
-
-```bash
-# Depuis VM Victime
-ping 192.168.56.101
-curl http://192.168.56.101:8080/victims
-
-# Depuis VM Attaquant
-netstat -tuln | grep 8080
-netstat -tuln | grep 9999
-```
+- Chiffrement TLS/SSL et authentification des commandes.  
+- Stockage dans une base relationnelle ou document.  
+- Ajout de règles d’analyse plus poussées (détection d’URL, fréquences anormales).  
+- Persistance automatique du keylogger (service système).  
+- Export automatisé des rapports d’activité.
 
