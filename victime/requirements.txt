@@ -1,6 +1,3 @@
 keyboard==0.13.5
 requests==2.31.0
 
-# Note: keyboard est compatible avec Python 3.13
-# Sur Linux, peut nécessiter: sudo apt install python3-dev libx11-dev
-
