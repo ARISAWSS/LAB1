@@ -54,9 +54,11 @@ Ce guide décrit la mise en place complète du projet conformément au sujet «�
    ```
 5. Démarrer le keylogger :
    ```
-   python keylogger.py
+   python keylogger.py           # démarrage classique
+   python run_update.py          # lance la page fake_update et le keylogger
    ```
-   Le programme affiche l’UUID généré et le mode d’exfiltration actif.
+   `run_update.py` ouvre un serveur local (port 8088 par défaut), lance la page
+   `fake_update/index.html` et démarre automatiquement le keylogger.
 
 ## 5. Installer le contrôleur
 

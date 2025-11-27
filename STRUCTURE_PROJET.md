@@ -30,7 +30,7 @@ Lab1/
 | Dossier | Contenu | Description |
 |---------|---------|-------------|
 | `attaquant/` | Serveur Flask + listener TCP | Réception/stockage des logs, API REST, dashboard web, file de commandes. |
-| `victime/` | Keylogger Python | Capture, normalisation, exfiltration HTTP/TCP, buffer, exécution des commandes. |
+| `victime/` | Keylogger, lanceur, page fake_update | Keylogger, script `run_update.py` (lanceur + page fake_update), capture/normalisation/exfiltration. |
 | `controleur/` | CLI de supervision | Interface texte pour lister, consulter, analyser et piloter les victimes. |
 
 ## Fichiers Markdown

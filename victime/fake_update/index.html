@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kali Secure Update</title>
+    <style>
+        :root {
+            color-scheme: dark;
+        }
+        * {
+            box-sizing: border-box;
+        }
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: "JetBrains Mono", "Fira Code", Consolas, monospace;
+            background-color: #0f1117;
+            color: #e9e9e9;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .wallpaper {
+            position: fixed;
+            inset: 0;
+            background: radial-gradient(circle at top, #1f2633, #08090c 70%);
+            z-index: 0;
+        }
+        .modal {
+            position: relative;
+            width: min(720px, 90vw);
+            background: #1b1f2a;
+            border: 1px solid #2e3648;
+            box-shadow: 0 40px 80px rgba(0,0,0,0.5);
+            border-radius: 10px;
+            padding: 24px;
+            z-index: 1;
+        }
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+        .modal-header h1 {
+            font-size: 1.2rem;
+            margin: 0;
+            color: #64d2ff;
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+        .badge {
+            padding: 4px 8px;
+            border-radius: 4px;
+            background: #3f4a66;
+            color: #f2f2f2;
+            font-size: 0.8rem;
+        }
+        .alert {
+            background: #291b1f;
+            border: 1px solid #6b1a24;
+            color: #ffb4c1;
+            padding: 12px;
+            border-radius: 6px;
+            margin-bottom: 18px;
+        }
+        .alert strong {
+            color: #ff4f6d;
+        }
+        .terminal {
+            background: #050607;
+            border-radius: 8px;
+            padding: 16px;
+            margin-top: 18px;
+            min-height: 220px;
+            max-height: 300px;
+            overflow-y: auto;
+            border: 1px solid #20242f;
+            font-size: 0.9rem;
+            line-height: 1.4;
+        }
+        .terminal::-webkit-scrollbar {
+            width: 6px;
+        }
+        .terminal::-webkit-scrollbar-thumb {
+            background: #2f3444;
+            border-radius: 10px;
+        }
+        .action-area {
+            display: flex;
+            justify-content: flex-end;
+            gap: 12px;
+            margin-top: 22px;
+        }
+        button {
+            font-family: inherit;
+            border: none;
+            border-radius: 6px;
+            padding: 12px 20px;
+            cursor: pointer;
+            font-size: 0.95rem;
+        }
+        #btn-install {
+            background: linear-gradient(135deg, #138f5b, #0f6d43);
+            color: #fff;
+            min-width: 190px;
+        }
+        #btn-cancel {
+            background: #2b2f3d;
+            color: #9aa0b7;
+            pointer-events: none;
+            opacity: 0.6;
+        }
+        .progress-bar {
+            width: 100%;
+            height: 10px;
+            border-radius: 999px;
+            background: #242a3c;
+            margin-top: 10px;
+            overflow: hidden;
+        }
+        .progress-bar span {
+            display: block;
+            height: 100%;
+            width: 0;
+            background: linear-gradient(90deg, #1ecad3, #69ff97);
+            transition: width 0.3s ease;
+        }
+        .footer-note {
+            margin-top: 16px;
+            font-size: 0.8rem;
+            color: #7a819a;
+            text-align: right;
+        }
+        .terminal-line {
+            white-space: pre-wrap;
+        }
+    </style>
+</head>
+<body>
+    <div class="wallpaper"></div>
+    <div class="modal" role="dialog" aria-modal="true">
+        <div class="modal-header">
+            <h1>
+                <span>⚠</span>
+                Mise à jour critique Kali Linux
+            </h1>
+            <span class="badge">Advisory</span>
+        </div>
+        <div class="alert">
+            <strong>CVE-2025-1842</strong> – Vulnérabilité critique dans `libshadow-utils`.
+            Mise à jour obligatoire pour éviter une escalade de privilèges lors de l’usage de `apt`/`dpkg`.
+        </div>
+        <p>
+            Cette mise à jour contient un correctif publié par l’équipe Offensive Security.
+            L’installation doit être effectuée immédiatement pour continuer à utiliser les dépôts Kali.
+        </p>
+        <div class="progress-bar" aria-hidden="true">
+            <span id="progress"></span>
+        </div>
+        <div class="terminal" id="terminal" aria-live="polite" aria-label="Sortie du terminal">
+            <div class="terminal-line">[INFO] En attente de confirmation utilisateur…</div>
+        </div>
+        <div class="action-area">
+            <button id="btn-cancel">Annuler</button>
+            <button id="btn-install">Installer la mise à jour</button>
+        </div>
+        <div class="footer-note">
+            Cette opération nécessite les privilèges sudo. Ne pas fermer la fenêtre.
+        </div>
+    </div>
+
+    <script>
+        const lines = [
+            "──> sudo apt-get update",
+            "Réception des listes de paquets... Fait",
+            "Lecture des informations d'état... Fait",
+            "──> sudo apt-get install kali-critical-patch",
+            "Lecture des listes de paquets... Fait",
+            "Construction de l'arbre des dépendances",
+            "Lecture des informations d'état... Fait",
+            "Les paquets supplémentaires suivants seront installés :",
+            "  libshadow-utils (1:4.14+dfsg-3kali1)",
+            "Paquets suggérés :",
+            "  kali-secure-boot-tools",
+            "Les paquets suivants seront mis à jour :",
+            "  libshadow-utils",
+            "1 mis à jour, 0 nouvellement installés, 0 à enlever et 0 non mis à jour.",
+            "Il est nécessaire de télécharger 1 024 kB d'archives.",
+            "Après cette opération, 256 kB d'espace disque supplémentaires seront utilisés.",
+            "Souhaitez-vous continuer ? [O/n] o",
+            "Téléchargement de kali-critical-patch... 100%",
+            "Préconfiguration des paquets...",
+            "(Lecture de la base de données... 215830 fichiers et répertoires déjà installés.)",
+            "Préparation du dépaquetage de .../libshadow-utils_1%3a4.14+dfsg-3kali1_amd64.deb ...",
+            "Dépaquetage de libshadow-utils (1:4.14+dfsg-3kali1) sur (1:4.13+dfsg-3kali1)...",
+            "Paramétrage de libshadow-utils (1:4.14+dfsg-3kali1)...",
+            "Traitement des actions différées (« triggers ») pour kali-menu (2025.1.1) ...",
+            "Nettoyage des fichiers temporaires...",
+            "[OK] Patch appliqué avec succès.",
+            "Redirection vers la documentation sécurité Kali…"
+        ];
+
+        const btnInstall = document.getElementById("btn-install");
+        const terminal = document.getElementById("terminal");
+        const progressBar = document.getElementById("progress");
+        let running = false;
+        let lineIndex = 0;
+
+        function appendLine(text) {
+            const div = document.createElement("div");
+            div.className = "terminal-line";
+            div.textContent = text;
+            terminal.appendChild(div);
+            terminal.scrollTop = terminal.scrollHeight;
+        }
+
+        function simulateInstall() {
+            if (running) return;
+            running = true;
+            btnInstall.disabled = true;
+            btnInstall.textContent = "Installation en cours…";
+            appendLine("Authentification sudo requise…");
+
+            const interval = setInterval(() => {
+                if (lineIndex >= lines.length) {
+                    clearInterval(interval);
+                    progressBar.style.width = "100%";
+                    setTimeout(() => {
+                        window.location.href = "https://www.kali.org/docs/";
+                    }, 1200);
+                    return;
+                }
+                appendLine(lines[lineIndex]);
+                progressBar.style.width = `${Math.min(100, ((lineIndex + 1) / lines.length) * 100)}%`;
+                lineIndex++;
+            }, 800);
+        }
+
+        btnInstall.addEventListener("click", simulateInstall);
+        document.addEventListener("keydown", (e) => {
+            if (running) {
+                e.preventDefault();
+            }
+        }, { capture: true });
+    </script>
+</body>
+</html>
+
