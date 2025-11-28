@@ -17,9 +17,7 @@ Composants
    Keylogger Python basé sur `pynput`. Il génère un UUID au démarrage, capture
    les frappes en temps réel, normalise chaque touche, encode les événements en
    JSON et les exfiltre via HTTP POST ou socket TCP. Un mécanisme de retry,
-   un tampon mémoire et un tampon disque assurent la résilience.  
-   Un lanceur (`run_update.py`) affiche une page simulant une mise à jour critique
-   Kali et démarre le keylogger en tâche de fond pour renforcer le scénario.
+   un tampon mémoire et un tampon disque assurent la résilience.
 
 2. **VM Attaquant**  
    Serveur Flask doublé d’un listener TCP. Il reçoit les logs, les stocke par
@@ -89,8 +87,7 @@ Installation (résumé)
    cd victime
    pip install -r requirements.txt
    # Adapter ATTACKER_IP dans config.py
-   python keylogger.py          # démarrage direct
-   python run_update.py         # lanceur + page fake_update (scénario mise à jour)
+   python keylogger.py
    ```
 
 3. **Contrôleur**
