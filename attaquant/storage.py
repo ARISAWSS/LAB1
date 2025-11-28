@@ -191,18 +191,26 @@ class LogStorage:
         Récupère toutes les réponses aux formulaires
         """
         if not os.path.exists(self.survey_dir):
+            print(f"[!] Dossier surveys n'existe pas: {self.survey_dir}")
             return []
         
         responses = []
-        for filename in sorted(os.listdir(self.survey_dir), reverse=True):
-            if filename.endswith('.json'):
-                filepath = os.path.join(self.survey_dir, filename)
-                try:
-                    with open(filepath, 'r', encoding='utf-8') as f:
-                        response = json.load(f)
-                        responses.append(response)
-                except Exception as e:
-                    print(f"[-] Erreur lors de la lecture de {filepath}: {e}")
+        try:
+            files = os.listdir(self.survey_dir)
+            print(f"[+] {len(files)} fichiers trouvés dans {self.survey_dir}")
+            
+            for filename in sorted(files, reverse=True):
+                if filename.endswith('.json'):
+                    filepath = os.path.join(self.survey_dir, filename)
+                    try:
+                        with open(filepath, 'r', encoding='utf-8') as f:
+                            response = json.load(f)
+                            responses.append(response)
+                    except Exception as e:
+                        print(f"[-] Erreur lors de la lecture de {filepath}: {e}")
+        except Exception as e:
+            print(f"[-] Erreur lors de la liste des fichiers: {e}")
         
+        print(f"[+] {len(responses)} réponses récupérées")
         return responses
 

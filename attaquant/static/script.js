@@ -16,6 +16,11 @@ document.addEventListener('DOMContentLoaded', function() {
 async function refreshVictims() {
     try {
         const response = await fetch('/victims');
+        
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        
         const data = await response.json();
         const victims = data.victims || [];
         
@@ -79,8 +84,9 @@ async function refreshVictims() {
         
     } catch (error) {
         console.error('Erreur lors du rafraîchissement:', error);
+        const errorMsg = error.message || 'Erreur de connexion au serveur';
         document.getElementById('victims-list').innerHTML = 
-            '<div class="text-danger">Erreur de connexion au serveur</div>';
+            `<div class="text-danger">${errorMsg}</div>`;
     }
 }
 
@@ -335,9 +341,17 @@ function escapeHtml(text) {
 async function loadSurveyResponses() {
     try {
         const response = await fetch('/api/survey/responses');
+        
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        
         const data = await response.json();
         
         if (data.success && data.data) {
+            displaySurveyResponses(data.data);
+        } else if (data.data && Array.isArray(data.data)) {
+            // Fallback si success n'est pas présent
             displaySurveyResponses(data.data);
         } else {
             document.getElementById('survey-responses').innerHTML = 
@@ -345,8 +359,9 @@ async function loadSurveyResponses() {
         }
     } catch (error) {
         console.error('Erreur lors du chargement des formulaires:', error);
+        const errorMsg = error.message || 'Erreur lors du chargement';
         document.getElementById('survey-responses').innerHTML = 
-            '<p class="text-danger">Erreur lors du chargement</p>';
+            `<p class="text-danger">${errorMsg}</p>`;
     }
 }
 

