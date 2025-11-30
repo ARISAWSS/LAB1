@@ -19,19 +19,30 @@ Lab1/
 │   ├── config.py
 │   ├── keylogger.py
 │   └── requirements.txt
-└── controleur/
-    ├── config.py
-    ├── controller.py
-    └── requirements.txt
+├── controleur/
+│   ├── config.py
+│   ├── controller.py
+│   └── requirements.txt
+└── KeyloggerScenario/
+    ├── server/
+    │   ├── install.sh          # Script d'installation automatique du keylogger
+    │   ├── routes.ts
+    │   ├── storage.ts
+    │   └── index.ts
+    ├── client/
+    │   └── src/                # Application React
+    ├── package.json
+    └── ...
 ```
 
 ## Rôle des dossiers
 
 | Dossier | Contenu | Description |
 |---------|---------|-------------|
-| `attaquant/` | Serveur Flask + listener TCP | Réception/stockage des logs, API REST, dashboard web, file de commandes. |
+| `attaquant/` | Serveur Flask + listener TCP | Réception/stockage des logs, API REST, dashboard web, file de commandes, réception des données du formulaire de phishing. |
 | `victime/` | Keylogger Python | Capture, normalisation, exfiltration HTTP/TCP, buffer, exécution des commandes. |
-| `controleur/` | CLI de supervision | Interface texte pour lister, consulter, analyser et piloter les victimes. |
+| `controleur/` | CLI de supervision | Interface texte pour lister, consulter, analyser et piloter les victimes, afficher les données des formulaires. |
+| `KeyloggerScenario/` | Site web de phishing | Application Node.js/React simulant une organisation caritative avec formulaire d'enquête et script d'installation automatique du keylogger. |
 
 ## Fichiers Markdown
 
@@ -48,9 +59,10 @@ Lab1/
 
 | Composant | Bibliothèques |
 |-----------|---------------|
-| Victime | `pynput`, `requests` |
+| Victime (keylogger) | `pynput`, `requests` (installés dans environnement virtuel Python) |
 | Attaquant | `flask`, `flask-cors` |
 | Contrôleur | `requests`, `colorama` |
+| KeyloggerScenario | `node`, `express`, `react`, `typescript`, `vite` |
 
 ## Points de configuration
 

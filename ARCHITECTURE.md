@@ -7,19 +7,23 @@
 
   +----------------------+        +----------------------+        +----------------------+
   |      VM Victime      |        |      VM Attaquant    |        |      Contrôleur      |
-  |  - keylogger.py      |  --->  |  - server.py (HTTP)  |  <---  |  - CLI controller.py |
-  |  - capture pynput    |  --->  |  - TCP listener      |  <-->  |  - Dashboard Flask   |
-  |  - envoi HTTP/TCP    |        |  - stockage logs     |        |  - API REST consommée |
+  |  - KeyloggerScenario |  --->  |  - server.py (HTTP)  |  <---  |  - CLI controller.py |
+  |    (site web)        |  --->  |  - TCP listener      |  <-->  |  - Dashboard Flask   |
+  |  - keylogger.py      |  --->  |  - stockage logs     |        |  - API REST consommée |
+  |    (venv isolé)      |        |  - stockage formulaires |     |  - Affichage formulaires |
   +----------------------+        +----------------------+        +----------------------+
              ^                                  |                             ^
              |                                  |                             |
              +----------------------------------+-----------------------------+
-                               API REST / commandes
+                               API REST / commandes / données formulaire
 ```
 
 * Les VMs communiquent via un réseau interne isolé (`lab-network`).  
-* Le keylogger choisit dynamiquement le mode d’exfiltration (HTTP ou TCP).  
-* Le contrôleur peut être lancé sur la VM Attaquant ou sur une troisième VM.
+* Le keylogger est installé automatiquement via un script d'installation depuis le site web de phishing.  
+* Le keylogger utilise un environnement virtuel Python isolé pour éviter les conflits avec le système.  
+* Le keylogger choisit dynamiquement le mode d'exfiltration (HTTP ou TCP).  
+* Le contrôleur peut être lancé sur la VM Attaquant ou sur une troisième VM.  
+* Le site web de phishing collecte des données via un formulaire et les envoie au serveur attaquant.
 
 ## Flux principaux
 
@@ -41,6 +45,13 @@
    - Contrôleur (CLI ou web) envoie `POST /command`.  
    - Le serveur ajoute la commande dans `pending_commands`.  
    - La victime interroge `GET /victims/<id>/commands` toutes les cinq secondes et exécute `start_capture`, `stop_capture`, `switch_mode`, `flush_logs`.
+
+6. **Scénario de phishing**  
+   - Le site web "Espoir Solidaire" affiche une alerte de sécurité trompeuse.  
+   - La victime exécute une commande qui télécharge et installe automatiquement le keylogger.  
+   - Le formulaire d'enquête collecte des données personnelles (nom, email, mot de passe, etc.).  
+   - Les données du formulaire sont envoyées à `POST /api/survey` et stockées dans `logs/surveys/`.  
+   - Le dashboard web et le CLI affichent les données capturées via `GET /api/survey/responses`.
 
 ## Points techniques clés
 
@@ -70,14 +81,15 @@ Victime           Serveur            Contrôleur
 
 | Exigence | Réalisation |
 |----------|-------------|
-| Capture temps réel | keylogger.py (pynput). |
+| Capture temps réel | keylogger.py (pynput dans environnement virtuel isolé). |
 | Normalisation + JSON | `normalize_key`, `encode_logs`. |
 | UUID par victime | Généré au démarrage (`uuid.uuid4`). |
 | Exfiltration HTTP/TCP | `send_via_http`, `send_via_tcp`. |
 | Résilience | Retry configurables, buffer mémoire + fichier. |
 | Récepteur | Flask + TCP listener, stockage structuré. |
 | Analyse optionnelle | Endpoint `/victims/<id>/analyze`. |
-| Contrôleur léger | CLI et dashboard web, commandes distantes complètes. |
+| Contrôleur léger | CLI et dashboard web, commandes distantes complètes, affichage des formulaires. |
+| Scénario réaliste | Site web de phishing avec formulaire et installation automatique du keylogger. |
 
 ## Améliorations possibles
 

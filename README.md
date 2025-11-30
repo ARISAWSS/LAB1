@@ -14,22 +14,20 @@ Composants
 ----------
 
 1. **VM Victime**  
-   Keylogger Python basé sur `pynput`. Il génère un UUID au démarrage, capture
-   les frappes en temps réel, normalise chaque touche, encode les événements en
-   JSON et les exfiltre via HTTP POST ou socket TCP. Un mécanisme de retry,
-   un tampon mémoire et un tampon disque assurent la résilience.
+   - Keylogger Python basé sur `pynput` avec environnement virtuel isolé. Il génère un UUID au démarrage, capture les frappes en temps réel, normalise chaque touche, encode les événements en JSON et les exfiltre via HTTP POST ou socket TCP. Un mécanisme de retry, un tampon mémoire et un tampon disque assurent la résilience.
+   - Site web de phishing "Espoir Solidaire" : application Node.js/React simulant une organisation caritative avec formulaire d'enquête et alerte de sécurité trompeuse permettant l'installation automatique du keylogger.
 
 2. **VM Attaquant**  
-   Serveur Flask doublé d’un listener TCP. Il reçoit les logs, les stocke par
+   Serveur Flask doublé d'un listener TCP. Il reçoit les logs, les stocke par
    victime et par date, expose une API REST, fournit un tableau de bord web,
-   et conserve les commandes à envoyer aux victimes.
+   et conserve les commandes à envoyer aux victimes. Réception également des données du formulaire de phishing.
 
 3. **Contrôleur**  
    - Interface CLI : liste des victimes, consultation des logs, analyse rapide,
      envoi des commandes `start_capture`, `stop_capture`, `switch_mode`,
-     `flush_logs`.
-   - Tableau de bord web : mêmes fonctionnalités avec rafraîchissement périodique
-     et boutons dédiés aux commandes distantes.
+     `flush_logs`, affichage des données des formulaires capturés.
+   - Tableau de bord web : mêmes fonctionnalités avec rafraîchissement périodique,
+     boutons dédiés aux commandes distantes, et affichage des données du formulaire de phishing.
 
 Exigences couvertes
 -------------------
@@ -82,13 +80,15 @@ Installation (résumé)
    ```
    Accès Web : `http://<IP_attaquant>:8080`.
 
-2. **VM Victime**
+2. **VM Victime - Scénario de phishing**
    ```
-   cd victime
-   pip install -r requirements.txt
-   # Adapter ATTACKER_IP dans config.py
-   python keylogger.py
+   cd KeyloggerScenario
+   npm install
+   npm run dev
    ```
+   Accès au site : `http://localhost:5000`
+   
+   Le keylogger est installé automatiquement via le script `install.sh` servi par le site web. L'installation crée un environnement virtuel Python isolé et installe le keylogger dans `~/.espoir-solidaire/`.
 
 3. **Contrôleur**
    ```

